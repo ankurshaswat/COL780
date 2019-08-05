@@ -106,3 +106,5 @@ venv.bak/
 # Others
 
 A1/videos
+.vscode/
+A1/frames
