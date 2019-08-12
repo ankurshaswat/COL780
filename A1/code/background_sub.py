@@ -7,6 +7,7 @@ from matplotlib.collections import LineCollection
 algo = 'KNN' # MOG2 or KNN
 window = 3
 frame_seq_path = '../videos/1.mp4'
+top_lines = 5
 
 if algo=='MOG2':
     backSub = cv.createBackgroundSubtractorMOG2()
@@ -66,20 +67,34 @@ while True:
     # # print(type(lines) is None)
     old_fg = copy.deepcopy(fgMask)
     # print(fgMask.any()> 0)
-    transformed_lines = []
+    # transformed_lines = []
+    avg = [0,0,0,0]
+    avg_try2 = [0,0,0,0]
     if lines is not None:
-        for rho,theta in lines[0]:
-            a = np.cos(theta)
-            b = np.sin(theta)
-            x0 = a*rho
-            y0 = b*rho
-            x1 = int(x0 + 1000*(-b))
-            y1 = int(y0 + 1000*(a))
-            x2 = int(x0 - 1000*(-b))
-            y2 = int(y0 - 1000*(a))
-            transformed_lines.append([(x1,y1), (x2,y2)])
-            cv.line(fgMask,(x1,y1),(x2,y2),(255,0,0),4)
-            cv.line(frame,(x1,y1),(x2,y2),(0,0,255),4)
+        # print(lines[0])
+        print(lines)
+        for single_line in lines[0:min(len(lines), top_lines)]:
+            for rho,theta in single_line:
+                # print("HI")
+                a = np.cos(theta)
+                b = np.sin(theta)
+                x0 = a*rho
+                y0 = b*rho
+                avg_try2[0] += x0;
+                avg_try2[1] += y0;
+                avg_try2[2] += rho;
+                avg_try2[3] += theta;
+                x1 = int(x0 + 1000*(-b))
+                y1 = int(y0 + 1000*(a))
+                x2 = int(x0 - 1000*(-b))
+                y2 = int(y0 - 1000*(a))
+                avg[0] += x1;
+                avg[1] += y1;
+                avg[2] += x2;
+                avg[3] += y2;
+            # transformed_lines.append([(x1,y1), (x2,y2)])
+            # cv.line(fgMask,(x1,y1),(x2,y2),(255,0,0),4)
+            # cv.line(frame,(x1,y1),(x2,y2),(0,0,255),4)
             # print((a-old_fg).any()>0)
         # print((fgMask-old_fg).any() > 0)
 
@@ -105,11 +120,32 @@ while True:
 
     # print("YOOOOOOOOOOO")
     # # Window Size Normal
-    cv.namedWindow("FG Mask", cv.WINDOW_NORMAL)
-    # cv.namedWindow("Frame", cv.WINDOW_NORMAL)
+    # cv.namedWindow("FG Mask", cv.WINDOW_NORMAL)
+    cv.namedWindow("Frame", cv.WINDOW_NORMAL)
+    if lines is not None:
+        num = min(len(lines), top_lines)
+        avg_try2[0] = avg_try2[0]/num
+        avg_try2[1] = avg_try2[1]/num
+        a = np.cos(avg_try2[3]/num)
+        b = np.sin(avg_try2[3]/num)
+        x0 = a*rho
+        y0 = b*rho
 
-    # cv.imshow('Frame', frame)
-    cv.imshow('FG Mask', fgMask)
+        x1 = int(avg_try2[0] + 1000*(-b))
+        y1 = int(avg_try2[1] + 1000*(a))
+        x2 = int(avg_try2[0] - 1000*(-b))
+        y2 = int(avg_try2[1] - 1000*(a))
+
+        x11 = int(x0 + 1000*(-b))
+        y11 = int(y0 + 1000*(a))
+        x22 = int(x0 - 1000*(-b))
+        y22 = int(y0 - 1000*(a))
+        # cv.line(frame,(x11,y11),(x22,y22),(255,0,0),4)
+        # cv.line(frame,(x1,y1),(x2,y2),(255,0,0),4)
+        cv.line(frame,(int(avg[0]/num),int(avg[1]/num)),(int(avg[2]/num),int(avg[3]/num)),(0,0,255),4)
+
+    cv.imshow('Frame', frame)
+    # cv.imshow('FG Mask', fgMask)
     # cv.imshow('FG Mask', fgMask-old_fg)
     # cv.imshow('FG Mask', skel)
     # cv.imshow('FG Mask', edges)
