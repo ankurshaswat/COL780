@@ -3,6 +3,7 @@ import numpy as np
 import copy
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
+import math
 
 algo = 'KNN' # MOG2 or KNN
 window = 3
@@ -61,21 +62,56 @@ while True:
 
 
     edges = cv.Canny(fgMask,50,100,apertureSize = 3)
+    # print(edges.any() > 0)
+    # print([i for i in edges[100] if edges[100][i] > 0])
+    indices = np.argwhere(edges>0)
+    # if(len(indices) > 0):
+        # print(indices[0][0])
+    #     print(edges[indices[0][0], indices[0][1]])
+    
+    # new_edges = np.zeros(np.shape(edges))
+    new_edges = copy.deepcopy(edges)
+    # new_edges[new_edges[new_edges>=0]] = 0
+    for i in range(edges.shape[0]):
+        if len(indices) > 0:
+            # print(indices[indices[:,0] == i])
+            # print(np.average(indices[indices[:,0] == i], axis=0)[1])    
+            new_edges[i,:] = 0
+            pixel = np.average(indices[indices[:,0] == i], axis=0)[1]
+            if not math.isnan(pixel):
+                # print(type(np.int16(new_edges.shape[1]).item()))
+                # print(type(pixel))
+                pixel = np.int16(pixel).item()
+                for x in range(max(0,pixel-3), min(np.int16(new_edges.shape[1]).item(), pixel+3)):
+                    # new_edges[row][x] = 255
+                    new_edges[i][int(pixel)] = 255
 
-    lines = cv.HoughLines(edges,1,np.pi/180,100)
-    # # print(lines)
-    # # print(type(lines) is None)
+    # row = 0
+    # for i in edges:
+    #     pixel = 0
+    #     count = 0
+    #     for j in range(len(i)):
+    #         if i[j]>0:
+    #             pixel+=j
+    #             count+=1
+    #     if count > 0:
+    #         pixel = int(pixel/count)
+    #         for x in range(max(0,pixel-10), min(new_edges.shape[1], pixel+10)):
+    #             new_edges[row][x] = 255
+    #     row += 1
+
+    # print(new_edges.any() > 0)
+
+    # lines = cv.HoughLines(edges,1,np.pi/180,100)
+    lines = cv.HoughLines(new_edges,1,np.pi/180,100)
     old_fg = copy.deepcopy(fgMask)
-    # print(fgMask.any()> 0)
     # transformed_lines = []
     avg = [0,0,0,0]
     avg_try2 = [0,0,0,0]
     if lines is not None:
-        # print(lines[0])
-        print(lines)
+        print(len(lines))
         for single_line in lines[0:min(len(lines), top_lines)]:
             for rho,theta in single_line:
-                # print("HI")
                 a = np.cos(theta)
                 b = np.sin(theta)
                 x0 = a*rho
@@ -98,6 +134,7 @@ while True:
             # print((a-old_fg).any()>0)
         # print((fgMask-old_fg).any() > 0)
 
+    # --------------------------------------------------
     # Trying skeleton wala stuff
     # size = np.size(fgMask)
     # print(size)
@@ -117,11 +154,12 @@ while True:
         
     #     if zeros==size:
     #         done = True
+    # -----------------------------------------------------
 
-    # print("YOOOOOOOOOOO")
     # # Window Size Normal
     # cv.namedWindow("FG Mask", cv.WINDOW_NORMAL)
     cv.namedWindow("Frame", cv.WINDOW_NORMAL)
+
     if lines is not None:
         num = min(len(lines), top_lines)
         avg_try2[0] = avg_try2[0]/num
@@ -143,12 +181,14 @@ while True:
         # cv.line(frame,(x11,y11),(x22,y22),(255,0,0),4)
         # cv.line(frame,(x1,y1),(x2,y2),(255,0,0),4)
         cv.line(frame,(int(avg[0]/num),int(avg[1]/num)),(int(avg[2]/num),int(avg[3]/num)),(0,0,255),4)
+        # cv.line(new_edges,(int(avg[0]/num),int(avg[1]/num)),(int(avg[2]/num),int(avg[3]/num)),(0,0,255),4)
 
     cv.imshow('Frame', frame)
     # cv.imshow('FG Mask', fgMask)
     # cv.imshow('FG Mask', fgMask-old_fg)
     # cv.imshow('FG Mask', skel)
     # cv.imshow('FG Mask', edges)
+    # cv.imshow('FG Mask', new_edges)
 
     keyboard = cv.waitKey(30)
     if keyboard == 'q' or keyboard == 27:
