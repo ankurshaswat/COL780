@@ -69,7 +69,7 @@ def get_intersection(lines):
 
 def approximate_split(frame):
     frame_copy = copy.deepcopy(frame)
-    sum_ = np.sum(frame_copy,axis=1)
+    sum_ = np.sum(frame_copy>0,axis=1)
     cum_sum = np.cumsum(sum_)
     percentages = 100*cum_sum/cum_sum[-1]
     for i in range(percentages.shape[0]):
