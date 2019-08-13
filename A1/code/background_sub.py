@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 import math
 
-algo = 'KNN' # MOG2 or KNN
+algo = 'MOG2' # MOG2 or KNN
 window = 3
 frame_seq_path = '../videos/1.mp4'
 top_lines = 5
@@ -104,6 +104,8 @@ while True:
 
     # lines = cv.HoughLines(edges,1,np.pi/180,100)
     lines = cv.HoughLines(new_edges,1,np.pi/180,100)
+    # if lines is None:
+    #     lines = cv.HoughLines(edges,1,np.pi/180,100)
     old_fg = copy.deepcopy(fgMask)
     # transformed_lines = []
     avg = [0,0,0,0]
