@@ -11,7 +11,7 @@ from tqdm import tqdm
 ALGO = 'KNN'  # MOG2 or KNN
 VIDEO_PATH = '../videos/1.mp4'
 NUMBER_LINES_CUTOFF = 5
-AXIS_SIZE = 1
+AXIS_SIZE = 3
 LENGTH_PERCENTAGE_THRESH = 70
 
 def find_median_axis(frame):
@@ -69,6 +69,11 @@ def get_intersection(lines):
 
 def approximate_split(frame):
     frame_copy = copy.deepcopy(frame)
+    indices = (frame_copy>0)*np.arange(frame_copy.shape[1])
+    variances = np.var(indices,axis=1)
+    print(variances.shape)
+    plt.plot(variances)
+    plt.show()
     sum_ = np.sum(frame_copy>0,axis=1)
     cum_sum = np.cumsum(sum_)
     percentages = 100*cum_sum/cum_sum[-1]
@@ -117,7 +122,7 @@ while True:
         x_axis_intersection.append(0)
         angle.append(0)
 
-    cv.imshow('Frame', frame)
+    cv.imshow('Frame', middle_axis)
 
     keyboard = cv.waitKey(30)
     if keyboard == 'q' or keyboard == 27:
