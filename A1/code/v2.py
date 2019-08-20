@@ -1,16 +1,17 @@
 import math
 import copy
+import os
 
 import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
 
 from matplotlib.collections import LineCollection
-from tqdm import tqdm
+# from tqdm import tqdm
 
 ALGO = 'KNN'  # MOG2 or KNN
 VIDEO_PATH = '../videos/1.mp4'
-OUT_VIDEO_PATH = '../out_videos/1.avi'
+OUT_VIDEO_PATH = '../out_videos/result_1.avi'
 NUMBER_LINES_CUTOFF = 5
 AXIS_SIZE = 3
 LENGTH_PERCENTAGE_THRESH = 70
@@ -19,15 +20,20 @@ def find_median_axis(frame):
     indices = np.argwhere(edges > 0)
 
     averaged_median_axis = copy.deepcopy(edges)
-
+    
+    variance_nan = [np.var(indices[indices[:, 0] == i][:,1]) for i in range(frame.shape[0])]
+    variance = [ variance_nan[i] if not math.isnan(variance_nan[i]) else 0 for i in range(len(variance_nan))]
+ 
     for i in range(edges.shape[0]):
-        if len(indices) > 0:
+        if len(indices) > 0 and variance[i]<2000 and variance[i]!=0:
             averaged_median_axis[i, :] = 0
             pixel = np.average(indices[indices[:, 0] == i], axis=0)[1]
             if not math.isnan(pixel):
                 pixel = np.int16(pixel).item()
                 for x in range(max(0, pixel-AXIS_SIZE), min(np.int16(averaged_median_axis.shape[1]).item(), pixel+AXIS_SIZE)):
                     averaged_median_axis[i][x] = 255
+        else:
+            averaged_median_axis[i, :] = 0
 
     return averaged_median_axis
 
@@ -73,20 +79,17 @@ def denoise(frame):
 
 def approximate_split(frame):
     frame_copy = copy.deepcopy(frame)
-    indices = (frame_copy>0)*np.arange(frame_copy.shape[1])
-    # variances = np.var(indices,axis=1)
+    indices = np.argwhere(frame_copy>0)
+ 
+    variance_nan = [np.var(indices[indices[:, 0] == i][:,1]) for i in range(frame.shape[0])]
+    variance = [ variance_nan[i] if not math.isnan(variance_nan[i]) else 0 for i in range(len(variance_nan))]
+ 
     sum_ = np.sum(frame_copy>0,axis=1)
     cum_sum = np.cumsum(sum_)
     percentages = 100*cum_sum/cum_sum[-1]
 
-    # weights = [0.1,0.2,0.4,0.2,0.1]
-    # cum_sum_smooth = np.convolve(cum_sum,np.array(weights)[::-1],'same')
-
-    # derivative = []
-    # for i in range(2,len(cum_sum)-2):
-    #     derivative.append(cum_sum_smooth[i]-cum_sum_smooth[i-1])
-    # plt.plot(cum_sum_smooth)
     # plt.show()
+    # plt.plot(variance)
 
     for i in range(percentages.shape[0]):
         if(percentages[i]>LENGTH_PERCENTAGE_THRESH):
@@ -96,96 +99,115 @@ def approximate_split(frame):
 
 if ALGO == 'MOG2':
     backSub = cv.createBackgroundSubtractorMOG2()
+    backSub1 = cv.createBackgroundSubtractorKNN()
 else:
     backSub = cv.createBackgroundSubtractorKNN()
-    # backSub.setHistory(100)
+    backSub1 = cv.createBackgroundSubtractorMOG2()
 
-capture = cv.VideoCapture(cv.samples.findFileOrKeep(VIDEO_PATH))
+vids = os.listdir("../videos/")
+print(vids)
+for video in vids:
+	VIDEO_PATH = '../videos/'+video
+	OUT_VIDEO_PATH = '../out_videos/result_'+ video.split('.')[0] +'.avi'
+	capture = cv.VideoCapture(cv.samples.findFileOrKeep(VIDEO_PATH))
+	fourcc = cv.VideoWriter_fourcc(*'XVID')
+	out = cv.VideoWriter(OUT_VIDEO_PATH,fourcc, 30, (int(capture.get(3)),int(capture.get(4))))
 
-if not capture.isOpened:
-    print('ERROR: Unable to open video path ' + VIDEO_PATH)
-    exit(0)
+	if not capture.isOpened:
+	    print('ERROR: Unable to open video path ' + VIDEO_PATH)
+	    exit(0)
 
-cv.namedWindow("Frame", cv.WINDOW_NORMAL)
-x_axis_intersection = []
-angle = []
-length = []
+	# cv.namedWindow("AveragedAxis", cv.WINDOW_NORMAL)
+	cv.namedWindow("Final", cv.WINDOW_NORMAL)
+	# cv.namedWindow("Edges", cv.WINDOW_NORMAL)
+	x_axis_intersection = []
+	angle = []
+	length = []
 
-frame_size = 0
-# print((frame.shape[0],frame.shape[1]))
-out = None
-while True:
-    _, frame = capture.read()
-    if frame is None:
-        break
+	count = 0
+	# print((frame.shape[0],frame.shape[1]))
+	# out = None
+	prev_line = None
+	while True:
+	    _, frame = capture.read()
+	    if frame is None:
+	        break
 
-    fgMask = backSub.apply(frame)
-    edges = cv.Canny(fgMask, 50, 100, apertureSize=3)
+	    fgMask = backSub.apply(frame)
+	    fgMask1 = backSub1.apply(frame)
 
-    # denoised_edges = denoise(edges)
-    denoised_edges = edges
+	    combined_fgMask = cv.bitwise_and(fgMask,fgMask1)
 
-    middle_axis = find_median_axis(denoised_edges)
+	    edges = cv.Canny(combined_fgMask, 50, 100, apertureSize=3)
 
-    y_split = approximate_split(denoised_edges)
-    length.append(y_split)
+	    # denoised_edges = denoise(edges)
+	    denoised_edges = edges
 
-    lines = cv.HoughLines(middle_axis, 1, np.pi/180, 40)
+	    middle_axis = find_median_axis(denoised_edges)
+	    # middle_axis = denoise(middle_axis)
 
-    if lines is not None:
-        pt1, pt2 = get_line(lines[0],y_split)
-        data_x,data_angle = get_intersection(lines[0])
+	    y_split = approximate_split(middle_axis)
+	    # length.append(y_split)
 
-        x_axis_intersection.append(data_x)
-        angle.append(data_angle)
-        cv.line(frame, pt1, pt2, (0, 0, 255), 6)
-    else:
-        x_axis_intersection.append(0)
-        angle.append(0)
+	    lines = cv.HoughLines(middle_axis, 1, np.pi/180, 40)
 
-    if frame_size == 0:
-        frame_size = frame.shape
-        print((int(capture.get(3)),int(capture.get(4))))
-        fourcc = cv.VideoWriter_fourcc(*'XVID')
-        out = cv.VideoWriter(OUT_VIDEO_PATH,fourcc, 30, (int(capture.get(3)),int(capture.get(4))))
+	    if lines is not None:
+	        pt1, pt2 = get_line(lines[0],y_split)
+	        prev_line = (pt1, pt2)
+	        # data_x,data_angle = get_intersection(lines[0])
 
-    cv.imshow('Frame', frame)
-    out.write(frame)
+	        # x_axis_intersection.append(data_x)
+	        # angle.append(data_angle)
+	        cv.line(frame, pt1, pt2, (0, 0, 255), 6)
+	    else:
+	    	if prev_line is not None:
+		        cv.line(frame, prev_line[0], prev_line[1], (0, 0, 255), 6)
+	        # x_axis_intersection.append(0)
+	        # angle.append(0)
 
-    keyboard = cv.waitKey(30)
-    if keyboard == 'q' or keyboard == 27:
-        print('LOG: Exit from keyboard')
-        break
+	    out.write(frame)
+	    cv.imshow('Final', frame)
+	    # cv.imshow('AveragedAxis', middle_axis)
+	    # cv.imshow('Edges', edges)
 
-out.release()
-r = np.arange(len(x_axis_intersection))
-weights = [0.1,0.2,0.4,0.2,0.1]
-x_axis_intersection_smooth = np.convolve(x_axis_intersection,np.array(weights)[::-1],'same')
-angle_smooth = np.convolve(angle,np.array(weights)[::-1],'same')
-length_smooth = np.convolve(length,np.array(weights)[::-1],'same')
+	    keyboard = cv.waitKey(30)
+	    if keyboard == 'q' or keyboard == 27:
+	        print('LOG: Exit from keyboard')
+	        break
+	    count += 1
 
-plt.figure(1)
-plt.ylabel('X axis intersection')
-plt.plot(r,x_axis_intersection)
-plt.figure(2)
-plt.ylabel('Line Angle')
-plt.plot(r,angle)
-plt.figure(3)
-plt.ylabel('Length')
-plt.plot(r,length)
-# plt.show()
+	out.release()
+	capture.release()
+	cv.destroyAllWindows()
+	# print(1/0) 
+	# r = np.arange(len(x_axis_intersection))
+	# weights = [0.1,0.2,0.4,0.2,0.1]
+	# x_axis_intersection_smooth = np.convolve(x_axis_intersection,np.array(weights)[::-1],'same')
+	# angle_smooth = np.convolve(angle,np.array(weights)[::-1],'same')
+	# length_smooth = np.convolve(length,np.array(weights)[::-1],'same')
+
+	# plt.figure(1)
+	# plt.ylabel('X axis intersection')
+	# plt.plot(r,x_axis_intersection)
+	# plt.figure(2)
+	# plt.ylabel('Line Angle')
+	# plt.plot(r,angle)
+	# plt.figure(3)
+	# plt.ylabel('Length')
+	# plt.plot(r,length)
+	# # plt.show()
 
 
-plt.figure(4)
-plt.ylabel('X axis intersection S')
-plt.plot(r,x_axis_intersection_smooth)
-plt.figure(5)
-plt.ylabel('Line Angle S')
-plt.plot(r,angle_smooth)
-plt.figure(6)
-plt.ylabel('Length S')
-plt.plot(r,length_smooth)
-# plt.show()
-## Observe Plots
-## We can do running average to smoothen these curves
-## Try any other idea for length
+	# plt.figure(4)
+	# plt.ylabel('X axis intersection S')
+	# plt.plot(r,x_axis_intersection_smooth)
+	# plt.figure(5)
+	# plt.ylabel('Line Angle S')
+	# plt.plot(r,angle_smooth)
+	# plt.figure(6)
+	# plt.ylabel('Length S')
+	# plt.plot(r,length_smooth)
+	# # plt.show()
+	# ## Observe Plots
+	# ## We can do running average to smoothen these curves
+	# ## Try any other idea for length
