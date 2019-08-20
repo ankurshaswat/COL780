@@ -100,7 +100,7 @@ for video in vids:
 	length = []
 
 	count = 0
-	prev_line = None
+	# prev_line = None
 	
 	# Until frames keep coming
 	while True:
@@ -125,14 +125,14 @@ for video in vids:
 
 	    if lines is not None:
 	        pt1, pt2 = get_line(lines[0],y_split)
-	        prev_line = (pt1, pt2)
+	        # prev_line = (pt1, pt2)
 	        cv.line(frame, pt1, pt2, (0, 0, 255), 6)
-	    else:
-	    	if prev_line is not None:
-		        cv.line(frame, prev_line[0], prev_line[1], (0, 0, 255), 6)
+	    # else:
+	    # 	if prev_line is not None:
+		   #      cv.line(frame, prev_line[0], prev_line[1], (0, 0, 255), 6)
 
 	    out.write(frame)
-	    cv.imshow('Final', frame)
+	    # cv.imshow('Final', frame)
 	    # cv.imshow('AveragedAxis', middle_axis)
 	    # cv.imshow('Edges', edges)
 

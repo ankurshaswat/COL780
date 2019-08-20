@@ -107,5 +107,7 @@ venv.bak/
 
 A1/videos
 A1/out_videos
+A1/out_videos_done
+A1/best_vids
 .vscode/
 A1/frames
