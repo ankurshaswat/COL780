@@ -7,9 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from matplotlib.collections import LineCollection
-# from tqdm import tqdm
 
-ALGO = 'KNN'  # MOG2 or KNN
 VIDEO_PATH = '../videos/1.mp4'
 OUT_VIDEO_PATH = '../out_videos/result_1.avi'
 NUMBER_LINES_CUTOFF = 5
@@ -37,12 +35,13 @@ def find_median_axis(frame):
 
     return averaged_median_axis
 
-
+# Get lines from Rho and Theta returned by Hough Transform using the bound y2
 def get_line(lines,y2):
     avg = [0, 0, 0, 0]
 
     num = min(len(lines), NUMBER_LINES_CUTOFF)
 
+	# Averaging over top NUMBER_LINES_CUTOFF most voted lines
     for rho, theta in lines[0:min(len(lines), NUMBER_LINES_CUTOFF)]:
         a = np.cos(theta)
         b = np.sin(theta)
@@ -60,23 +59,7 @@ def get_line(lines,y2):
 
     return (int(avg[0]/num), int(avg[1]/num)), (int(avg[2]/num), int(avg[3]/num))
 
-
-def get_intersection(lines):
-    num = min(len(lines), NUMBER_LINES_CUTOFF)
-    fin_x = 0.0
-    angle = 0.0
-    for rho, theta in lines[0:min(len(lines), NUMBER_LINES_CUTOFF)]:
-        a = np.cos(theta)
-        b = np.sin(theta)
-        angle += (a/b)
-        x0 = a*rho
-        y0 = b*rho
-        fin_x += x0 + (b*y0 / a)
-    return fin_x / num, angle / num
-
-def denoise(frame):
-    return cv.fastNlMeansDenoising(frame, None, 30.0, 7, 21)
-
+# Finding out the length of the line to be a median axis and not overflow
 def approximate_split(frame):
     frame_copy = copy.deepcopy(frame)
     indices = np.argwhere(frame_copy>0)
@@ -88,24 +71,16 @@ def approximate_split(frame):
     cum_sum = np.cumsum(sum_)
     percentages = 100*cum_sum/cum_sum[-1]
 
-    # plt.show()
-    # plt.plot(variance)
-
     for i in range(percentages.shape[0]):
         if(percentages[i]>LENGTH_PERCENTAGE_THRESH):
             return i
 
     return 0
 
-if ALGO == 'MOG2':
-    backSub = cv.createBackgroundSubtractorMOG2()
-    backSub1 = cv.createBackgroundSubtractorKNN()
-else:
-    backSub = cv.createBackgroundSubtractorKNN()
-    backSub1 = cv.createBackgroundSubtractorMOG2()
+backSub = cv.createBackgroundSubtractorKNN()
+backSub1 = cv.createBackgroundSubtractorMOG2()
 
 vids = os.listdir("../videos/")
-print(vids)
 for video in vids:
 	VIDEO_PATH = '../videos/'+video
 	OUT_VIDEO_PATH = '../out_videos/result_'+ video.split('.')[0] +'.avi'
@@ -118,16 +93,16 @@ for video in vids:
 	    exit(0)
 
 	# cv.namedWindow("AveragedAxis", cv.WINDOW_NORMAL)
-	# cv.namedWindow("Final", cv.WINDOW_NORMAL)
+	cv.namedWindow("Final", cv.WINDOW_NORMAL)
 	# cv.namedWindow("Edges", cv.WINDOW_NORMAL)
 	x_axis_intersection = []
 	angle = []
 	length = []
 
 	count = 0
-	# print((frame.shape[0],frame.shape[1]))
-	# out = None
 	prev_line = None
+	
+	# Until frames keep coming
 	while True:
 	    _, frame = capture.read()
 	    if frame is None:
@@ -140,33 +115,24 @@ for video in vids:
 
 	    edges = cv.Canny(combined_fgMask, 50, 100, apertureSize=3)
 
-	    # denoised_edges = denoise(edges)
 	    denoised_edges = edges
 
 	    middle_axis = find_median_axis(denoised_edges)
-	    # middle_axis = denoise(middle_axis)
 
 	    y_split = approximate_split(middle_axis)
-	    # length.append(y_split)
 
 	    lines = cv.HoughLines(middle_axis, 1, np.pi/180, 40)
 
 	    if lines is not None:
 	        pt1, pt2 = get_line(lines[0],y_split)
 	        prev_line = (pt1, pt2)
-	        # data_x,data_angle = get_intersection(lines[0])
-
-	        # x_axis_intersection.append(data_x)
-	        # angle.append(data_angle)
 	        cv.line(frame, pt1, pt2, (0, 0, 255), 6)
 	    else:
 	    	if prev_line is not None:
 		        cv.line(frame, prev_line[0], prev_line[1], (0, 0, 255), 6)
-	        # x_axis_intersection.append(0)
-	        # angle.append(0)
 
 	    out.write(frame)
-	    # cv.imshow('Final', frame)
+	    cv.imshow('Final', frame)
 	    # cv.imshow('AveragedAxis', middle_axis)
 	    # cv.imshow('Edges', edges)
 
@@ -179,35 +145,3 @@ for video in vids:
 	out.release()
 	capture.release()
 	cv.destroyAllWindows()
-	# print(1/0) 
-	# r = np.arange(len(x_axis_intersection))
-	# weights = [0.1,0.2,0.4,0.2,0.1]
-	# x_axis_intersection_smooth = np.convolve(x_axis_intersection,np.array(weights)[::-1],'same')
-	# angle_smooth = np.convolve(angle,np.array(weights)[::-1],'same')
-	# length_smooth = np.convolve(length,np.array(weights)[::-1],'same')
-
-	# plt.figure(1)
-	# plt.ylabel('X axis intersection')
-	# plt.plot(r,x_axis_intersection)
-	# plt.figure(2)
-	# plt.ylabel('Line Angle')
-	# plt.plot(r,angle)
-	# plt.figure(3)
-	# plt.ylabel('Length')
-	# plt.plot(r,length)
-	# # plt.show()
-
-
-	# plt.figure(4)
-	# plt.ylabel('X axis intersection S')
-	# plt.plot(r,x_axis_intersection_smooth)
-	# plt.figure(5)
-	# plt.ylabel('Line Angle S')
-	# plt.plot(r,angle_smooth)
-	# plt.figure(6)
-	# plt.ylabel('Length S')
-	# plt.plot(r,length_smooth)
-	# # plt.show()
-	# ## Observe Plots
-	# ## We can do running average to smoothen these curves
-	# ## Try any other idea for length
