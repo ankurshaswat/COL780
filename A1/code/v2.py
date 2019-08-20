@@ -67,19 +67,31 @@ def get_intersection(lines):
         fin_x += x0 + (b*y0 / a)
     return fin_x / num, angle / num
 
+def denoise(frame):
+    return cv.fastNlMeansDenoising(frame, None, 30.0, 7, 21)
+
 def approximate_split(frame):
     frame_copy = copy.deepcopy(frame)
     indices = (frame_copy>0)*np.arange(frame_copy.shape[1])
-    variances = np.var(indices,axis=1)
-    print(variances.shape)
-    plt.plot(variances)
-    plt.show()
+    # variances = np.var(indices,axis=1)
     sum_ = np.sum(frame_copy>0,axis=1)
     cum_sum = np.cumsum(sum_)
     percentages = 100*cum_sum/cum_sum[-1]
+
+    # weights = [0.1,0.2,0.4,0.2,0.1]
+    # cum_sum_smooth = np.convolve(cum_sum,np.array(weights)[::-1],'same')
+
+    # derivative = []
+    # for i in range(2,len(cum_sum)-2):
+    #     derivative.append(cum_sum_smooth[i]-cum_sum_smooth[i-1])
+    # plt.plot(cum_sum_smooth)
+    # plt.show()
+
     for i in range(percentages.shape[0]):
         if(percentages[i]>LENGTH_PERCENTAGE_THRESH):
             return i
+
+    return 0
 
 if ALGO == 'MOG2':
     backSub = cv.createBackgroundSubtractorMOG2()
@@ -104,9 +116,12 @@ while True:
 
     fgMask = backSub.apply(frame)
     edges = cv.Canny(fgMask, 50, 100, apertureSize=3)
-    middle_axis = find_median_axis(edges)
 
-    y_split = approximate_split(middle_axis)
+    denoised_edges = denoise(edges)
+
+    middle_axis = find_median_axis(denoised_edges)
+
+    y_split = approximate_split(denoised_edges)
     length.append(y_split)
 
     lines = cv.HoughLines(middle_axis, 1, np.pi/180, 40)
@@ -122,7 +137,7 @@ while True:
         x_axis_intersection.append(0)
         angle.append(0)
 
-    cv.imshow('Frame', middle_axis)
+    cv.imshow('Frame', frame)
 
     keyboard = cv.waitKey(30)
     if keyboard == 'q' or keyboard == 27:
@@ -130,6 +145,12 @@ while True:
         break
 
 r = np.arange(len(x_axis_intersection))
+
+weights = [0.1,0.2,0.4,0.2,0.1]
+x_axis_intersection_smooth = np.convolve(x_axis_intersection,np.array(weights)[::-1],'same')
+angle_smooth = np.convolve(angle,np.array(weights)[::-1],'same')
+length_smooth = np.convolve(length,np.array(weights)[::-1],'same')
+
 plt.figure(1)
 plt.ylabel('X axis intersection')
 plt.plot(r,x_axis_intersection)
@@ -139,8 +160,19 @@ plt.plot(r,angle)
 plt.figure(3)
 plt.ylabel('Length')
 plt.plot(r,length)
-plt.show()
+# plt.show()
 
+
+plt.figure(4)
+plt.ylabel('X axis intersection S')
+plt.plot(r,x_axis_intersection_smooth)
+plt.figure(5)
+plt.ylabel('Line Angle S')
+plt.plot(r,angle_smooth)
+plt.figure(6)
+plt.ylabel('Length S')
+plt.plot(r,length_smooth)
+plt.show()
 ## Observe Plots
 ## We can do running average to smoothen these curves
 ## Try any other idea for length
