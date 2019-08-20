@@ -9,7 +9,7 @@ from matplotlib.collections import LineCollection
 from tqdm import tqdm
 
 ALGO = 'KNN'  # MOG2 or KNN
-VIDEO_PATH = '../videos/1.mp4'
+VIDEO_PATH = '../videos/10.mp4'
 NUMBER_LINES_CUTOFF = 5
 AXIS_SIZE = 3
 LENGTH_PERCENTAGE_THRESH = 70
@@ -18,15 +18,20 @@ def find_median_axis(frame):
     indices = np.argwhere(edges > 0)
 
     averaged_median_axis = copy.deepcopy(edges)
-
+    
+    variance_nan = [np.var(indices[indices[:, 0] == i][:,1]) for i in range(frame.shape[0])]
+    variance = [ variance_nan[i] if not math.isnan(variance_nan[i]) else 0 for i in range(len(variance_nan))]
+ 
     for i in range(edges.shape[0]):
-        if len(indices) > 0:
+        if len(indices) > 0 and variance[i]<2000 and variance[i]!=0:
             averaged_median_axis[i, :] = 0
             pixel = np.average(indices[indices[:, 0] == i], axis=0)[1]
             if not math.isnan(pixel):
                 pixel = np.int16(pixel).item()
                 for x in range(max(0, pixel-AXIS_SIZE), min(np.int16(averaged_median_axis.shape[1]).item(), pixel+AXIS_SIZE)):
                     averaged_median_axis[i][x] = 255
+        else:
+            averaged_median_axis[i, :] = 0
 
     return averaged_median_axis
 
@@ -72,20 +77,17 @@ def denoise(frame):
 
 def approximate_split(frame):
     frame_copy = copy.deepcopy(frame)
-    indices = (frame_copy>0)*np.arange(frame_copy.shape[1])
-    # variances = np.var(indices,axis=1)
+    indices = np.argwhere(frame_copy>0)
+ 
+    variance_nan = [np.var(indices[indices[:, 0] == i][:,1]) for i in range(frame.shape[0])]
+    variance = [ variance_nan[i] if not math.isnan(variance_nan[i]) else 0 for i in range(len(variance_nan))]
+ 
     sum_ = np.sum(frame_copy>0,axis=1)
     cum_sum = np.cumsum(sum_)
     percentages = 100*cum_sum/cum_sum[-1]
 
-    # weights = [0.1,0.2,0.4,0.2,0.1]
-    # cum_sum_smooth = np.convolve(cum_sum,np.array(weights)[::-1],'same')
-
-    # derivative = []
-    # for i in range(2,len(cum_sum)-2):
-    #     derivative.append(cum_sum_smooth[i]-cum_sum_smooth[i-1])
-    # plt.plot(cum_sum_smooth)
     # plt.show()
+    # plt.plot(variance)
 
     for i in range(percentages.shape[0]):
         if(percentages[i]>LENGTH_PERCENTAGE_THRESH):
@@ -95,8 +97,10 @@ def approximate_split(frame):
 
 if ALGO == 'MOG2':
     backSub = cv.createBackgroundSubtractorMOG2()
+    backSub1 = cv.createBackgroundSubtractorKNN()
 else:
     backSub = cv.createBackgroundSubtractorKNN()
+    backSub1 = cv.createBackgroundSubtractorMOG2()
 
 capture = cv.VideoCapture(cv.samples.findFileOrKeep(VIDEO_PATH))
 
@@ -104,7 +108,9 @@ if not capture.isOpened:
     print('ERROR: Unable to open video path ' + VIDEO_PATH)
     exit(0)
 
-cv.namedWindow("Frame", cv.WINDOW_NORMAL)
+cv.namedWindow("AveragedAxis", cv.WINDOW_NORMAL)
+cv.namedWindow("Final", cv.WINDOW_NORMAL)
+cv.namedWindow("Edges", cv.WINDOW_NORMAL)
 x_axis_intersection = []
 angle = []
 length = []
@@ -115,13 +121,19 @@ while True:
         break
 
     fgMask = backSub.apply(frame)
-    edges = cv.Canny(fgMask, 50, 100, apertureSize=3)
+    fgMask1 = backSub1.apply(frame)
 
-    denoised_edges = denoise(edges)
+    combined_fgMask = cv.bitwise_and(fgMask,fgMask1)
+
+    edges = cv.Canny(combined_fgMask, 50, 100, apertureSize=3)
+
+    # denoised_edges = denoise(edges)
+    denoised_edges = edges
 
     middle_axis = find_median_axis(denoised_edges)
+    # middle_axis = denoise(middle_axis)
 
-    y_split = approximate_split(denoised_edges)
+    y_split = approximate_split(middle_axis)
     length.append(y_split)
 
     lines = cv.HoughLines(middle_axis, 1, np.pi/180, 40)
@@ -137,7 +149,9 @@ while True:
         x_axis_intersection.append(0)
         angle.append(0)
 
-    cv.imshow('Frame', frame)
+    cv.imshow('Final', frame)
+    cv.imshow('AveragedAxis', middle_axis)
+    cv.imshow('Edges', edges)
 
     keyboard = cv.waitKey(30)
     if keyboard == 'q' or keyboard == 27:
@@ -172,7 +186,7 @@ plt.plot(r,angle_smooth)
 plt.figure(6)
 plt.ylabel('Length S')
 plt.plot(r,length_smooth)
-plt.show()
+# plt.show()
 ## Observe Plots
 ## We can do running average to smoothen these curves
 ## Try any other idea for length
