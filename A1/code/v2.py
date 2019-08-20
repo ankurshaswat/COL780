@@ -10,6 +10,7 @@ from tqdm import tqdm
 
 ALGO = 'KNN'  # MOG2 or KNN
 VIDEO_PATH = '../videos/1.mp4'
+OUT_VIDEO_PATH = '../out_videos/1.avi'
 NUMBER_LINES_CUTOFF = 5
 AXIS_SIZE = 3
 LENGTH_PERCENTAGE_THRESH = 70
@@ -97,6 +98,7 @@ if ALGO == 'MOG2':
     backSub = cv.createBackgroundSubtractorMOG2()
 else:
     backSub = cv.createBackgroundSubtractorKNN()
+    # backSub.setHistory(100)
 
 capture = cv.VideoCapture(cv.samples.findFileOrKeep(VIDEO_PATH))
 
@@ -109,6 +111,9 @@ x_axis_intersection = []
 angle = []
 length = []
 
+frame_size = 0
+# print((frame.shape[0],frame.shape[1]))
+out = None
 while True:
     _, frame = capture.read()
     if frame is None:
@@ -117,7 +122,8 @@ while True:
     fgMask = backSub.apply(frame)
     edges = cv.Canny(fgMask, 50, 100, apertureSize=3)
 
-    denoised_edges = denoise(edges)
+    # denoised_edges = denoise(edges)
+    denoised_edges = edges
 
     middle_axis = find_median_axis(denoised_edges)
 
@@ -137,15 +143,22 @@ while True:
         x_axis_intersection.append(0)
         angle.append(0)
 
+    if frame_size == 0:
+        frame_size = frame.shape
+        print((int(capture.get(3)),int(capture.get(4))))
+        fourcc = cv.VideoWriter_fourcc(*'XVID')
+        out = cv.VideoWriter(OUT_VIDEO_PATH,fourcc, 30, (int(capture.get(3)),int(capture.get(4))))
+
     cv.imshow('Frame', frame)
+    out.write(frame)
 
     keyboard = cv.waitKey(30)
     if keyboard == 'q' or keyboard == 27:
         print('LOG: Exit from keyboard')
         break
 
+out.release()
 r = np.arange(len(x_axis_intersection))
-
 weights = [0.1,0.2,0.4,0.2,0.1]
 x_axis_intersection_smooth = np.convolve(x_axis_intersection,np.array(weights)[::-1],'same')
 angle_smooth = np.convolve(angle,np.array(weights)[::-1],'same')
@@ -172,7 +185,7 @@ plt.plot(r,angle_smooth)
 plt.figure(6)
 plt.ylabel('Length S')
 plt.plot(r,length_smooth)
-plt.show()
+# plt.show()
 ## Observe Plots
 ## We can do running average to smoothen these curves
 ## Try any other idea for length
