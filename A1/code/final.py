@@ -132,7 +132,7 @@ for video in vids:
 		   #      cv.line(frame, prev_line[0], prev_line[1], (0, 0, 255), 6)
 
 	    out.write(frame)
-	    # cv.imshow('Final', frame)
+	    cv.imshow('Final', frame)
 	    # cv.imshow('AveragedAxis', middle_axis)
 	    # cv.imshow('Edges', edges)
 
