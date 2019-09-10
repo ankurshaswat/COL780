@@ -127,12 +127,13 @@ for video in vids:
 	        pt1, pt2 = get_line(lines[0],y_split)
 	        # prev_line = (pt1, pt2)
 	        cv.line(frame, pt1, pt2, (0, 0, 255), 6)
+	        cv.line(combined_fgMask, pt1, pt2, (0, 0, 255), 6)
 	    # else:
 	    # 	if prev_line is not None:
 		   #      cv.line(frame, prev_line[0], prev_line[1], (0, 0, 255), 6)
 
-	    out.write(frame)
-	    cv.imshow('Final', frame)
+	    # out.write(frame)
+	    cv.imshow('Final', combined_fgMask)
 	    # cv.imshow('AveragedAxis', middle_axis)
 	    # cv.imshow('Edges', edges)
 
