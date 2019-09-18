@@ -13,7 +13,7 @@ GOOD_MATCH_PERCENT = 0.15
 
 def define_args():
 	arg_parser = argparse.ArgumentParser()
-	arg_parser.add_argument("-i", "--images", type=str, default="InSample",
+	arg_parser.add_argument("-i", "--images", type=str, default="../InSample",
 							help="path to directory containing image group directories")
 	arg_parser.add_argument("-o", "--output", type=str, default="OutSample",
 							help="path to directory to output combined images")

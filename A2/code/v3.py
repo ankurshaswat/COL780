@@ -4,16 +4,20 @@ Written by ankurshaswat on 18/09/2019
 """
 
 import argparse
+import itertools
 import os
+
 import cv2
 import imutils
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
 print('Is CV3 Or Better = ', imutils.is_cv3(or_better=True))
 
 FEATURE_EXTRACTOR = 'orb'  # 'sift'|'surf'|'brisk'|'orb'
-GOOD_MATCH_PERCENT = 0.15
+FEATURE_MATCHER = 'bf'  # 'bf'|'knn'
+GOOD_MATCH_PERCENT = 1
+LOWES_RATIO = 0.75
 
 
 def get_args():
@@ -40,6 +44,38 @@ def load_images(folder_path):
         image = cv2.imread(image_path)
         images_loc.append(image)
     return images_loc
+
+
+def display_images(img1_loc, img2_loc):
+    """
+    Display 2 images side by side
+    """
+    _, (ax1, ax2) = plt.subplots(nrows=1, ncols=2,
+                                 constrained_layout=False, figsize=(16, 9))
+    ax1.imshow(img1_loc)
+    ax2.imshow(img2_loc)
+    plt.show()
+
+
+def display_image_with_keypoints(img1_loc, kps1_loc, img2_loc, kps2_loc):
+    """
+    Display 2 images and their keypoints side by side
+    """
+    _, (ax1, ax2) = plt.subplots(nrows=1, ncols=2,
+                                 figsize=(20, 8), constrained_layout=False)
+    ax1.imshow(cv2.drawKeypoints(img1_loc, kps1_loc, None, color=(255, 0, 0)))
+    ax2.imshow(cv2.drawKeypoints(img2_loc, kps2_loc, None, color=(255, 0, 0)))
+    plt.show()
+
+
+def display_image_with_matches(img1_loc, kps1_loc, img2_loc, kps2_loc, matches_loc):
+    """
+    Display 2 images and their keypoints connected by lines side by side
+    """
+    img = cv2.drawMatches(img1_loc, kps1_loc, img2_loc, kps2_loc, matches_loc,
+                          None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+    plt.imshow(img)
+    plt.show()
 
 
 def convert_to_grayscale(image):
@@ -70,9 +106,13 @@ def create_matcher():
     """
     Fill documentation
     """
-    # matcher = cv2.detail.BestOf2NearestMatcher_create(False, 0.3)
-    matcher = cv2.DescriptorMatcher_create(
-        cv2.DESCRIPTOR_MATCHER_BRUTEFORCE_HAMMING)
+
+    cross_check = bool(FEATURE_MATCHER == 'bf')
+
+    if FEATURE_EXTRACTOR in ('sift', 'surf'):
+        matcher = cv2.BFMatcher(cv2.NORM_L2, crossCheck=cross_check)
+    else:
+        matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=cross_check)
     return matcher
 
 
@@ -90,17 +130,21 @@ def get_matches(kp1_loc, dsc1_loc, kp2_loc, dsc2_loc):
     """
     Fill documentation
     """
-    matches_loc = MATCHER.match(dsc1_loc, dsc2_loc, None)
 
-    matches_loc.sort(key=lambda x: x.distance, reverse=False)
+    if FEATURE_MATCHER == 'bf':
+        raw_matches = MATCHER.match(dsc1_loc, dsc2_loc)
+        raw_matches.sort(key=lambda x: x.distance)
+        # print("Brute Force #matches = ", len(raw_matches))
+        num_good_matches = int(len(raw_matches) * GOOD_MATCH_PERCENT)
+        matches_loc = raw_matches[:num_good_matches]
 
-    good_matches = int(len(matches_loc) * GOOD_MATCH_PERCENT)
-    matches_loc = matches_loc[:good_matches]
-
-    # imMatches = cv2.drawMatches(images[img1_ind],
-    # keypoints1, images[img2_ind], keypoints2, matches, None)
-    # cv2.imshow("matches.jpg", imMatches)
-    # cv2.waitKey(0)
+    else:
+        raw_matches = MATCHER.knnMatch(dsc1_loc, dsc2_loc, 2)
+        # print("KNN #matches = ", len(raw_matches))
+        matches_loc = []
+        for m_val, n_val in raw_matches:
+            if m_val.distance < n_val.distance * LOWES_RATIO:
+                matches_loc.append(m_val)
 
     points1_loc = np.zeros((len(matches_loc), 2), dtype=np.float32)
     points2_loc = np.zeros((len(matches_loc), 2), dtype=np.float32)
@@ -172,10 +216,11 @@ for image_grp in IMAGE_GRP_FOLDERS:
     images.pop(0)
     grayscale_imgs.pop(0)
     described_imgs.pop(0)
-    # plt.imshow(img1)
-    # plt.show()
 
-    while described_imgs:
+    while len(described_imgs) > 1:
+        # for (ind1, ind2) in itertools.combinations(range(len(images)), 2):
+        #     img1, img1_grayscale, img1_described = images[ind1], grayscale_imgs[ind1], described_imgs[ind1]
+        #     img2, img2_grayscale, img2_described = images[ind2], grayscale_imgs[ind2], described_imgs[ind2]
         min_dist = 10000
         best_match = 0
         best_match_data = (0, 0)
@@ -192,24 +237,24 @@ for image_grp in IMAGE_GRP_FOLDERS:
         img2, img2_grayscale, img2_described = images[
             best_match], grayscale_imgs[best_match], described_imgs[best_match]
         (kp2, dsc2) = img2_described
+
         print("Final Best match: ", best_match)
+
         images.pop(best_match)
         grayscale_imgs.pop(best_match)
         described_imgs.pop(best_match)
 
-        # img3 = cv2.drawMatches(img1,kp1,img2,kp2,best_match_data[2],
-        # None,flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
-
-        # plt.imshow(img3)
-        # plt.show()
+        # display_image_with_keypoints(img1_grayscale, kp1, img2_grayscale, kp2)
+        display_image_with_matches(
+            img1_grayscale, kp1, img2_grayscale, kp2, best_match_data[2])
 
         h, mask = cv2.findHomography(
             best_match_data[0], best_match_data[1], cv2.RANSAC)
         height, width, channels = img2.shape
 
-        # # Apply panorama correction
-        # width = img1.shape[1] + img2.shape[1]
-        # height = img1.shape[0] + img2.shape[0]
+        # Apply panorama correction
+        width = img1.shape[1] + img2.shape[1]
+        height = img1.shape[0] + img2.shape[0]
         # print(width, height)
 
         # T1 = np.matrix([[1., 0., 0. + width / 2],
@@ -217,17 +262,18 @@ for image_grp in IMAGE_GRP_FOLDERS:
         #                   [0., 0., 1.]])
 
         # img1 = cv2.warpPerspective(img1, T1*h, (width, height))
-        # # img2 = cv2.warpPerspective(img2, h, (width, height))
+        img1 = cv2.warpPerspective(img1, h, (width, height))
+        # img2 = cv2.warpPerspective(img2, h, (width, height))
         # print(img1.shape)
         # print(img2.shape)
-        # plt.imshow(img1)
-        # plt.show()
-
-        # img1[img2.shape[0]:, 0:img2.shape[1]] = img2
-        img1 = warp_images(img2, img1, h)
         plt.imshow(img1)
-        # plt.show()
-        # print()
+        plt.show()
+
+        img1[0:img2.shape[0], 0:img2.shape[1]] = img2
+        # img1 = warp_images(img2, img1, h)
+        plt.imshow(img1)
+        plt.show()
+#         # print()
         gray = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
         thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY)[1]
 
@@ -245,38 +291,38 @@ for image_grp in IMAGE_GRP_FOLDERS:
         img1_described = get_descriptors(img1_grayscale)
         (kp1, dsc1) = img1_described
 
-        print(img1.shape)
-        # scale_percent = 50
-        width = int(img2.shape[1])
-        height = int(img2.shape[0])
-        dim = (width, height)
-        # resize image
-        img1 = cv2.resize(img1, dim, interpolation=cv2.INTER_AREA)
-        print(img1.shape)
+#         print(img1.shape)
+#         # scale_percent = 50
+#         width = int(img2.shape[1])
+#         height = int(img2.shape[0])
+#         dim = (width, height)
+#         # resize image
+#         img1 = cv2.resize(img1, dim, interpolation=cv2.INTER_AREA)
+#         print(img1.shape)
 
         plt.imshow(img1)
         plt.show()
 
-    # for img1_ind in range(len(described_imgs)):
-    # 	for img2_ind in range(len(described_imgs)):
-    # 		if(img1_ind <= img2_ind):
-    # 			continue
-    # 		else:
-    # 			(keypoints1, descriptors1) = described_imgs[img1_ind]
-    # 			(keypoints2, descriptors2) = described_imgs[img2_ind]
+#     # for img1_ind in range(len(described_imgs)):
+#     # 	for img2_ind in range(len(described_imgs)):
+#     # 		if(img1_ind <= img2_ind):
+#     # 			continue
+#     # 		else:
+#     # 			(keypoints1, descriptors1) = described_imgs[img1_ind]
+#     # 			(keypoints2, descriptors2) = described_imgs[img2_ind]
 
-    # 			min_distance, points1, points2 = get_matches(
-    # 				keypoints1, descriptors1, keypoints2, descriptors2)
+#     # 			min_distance, points1, points2 = get_matches(
+#     # 				keypoints1, descriptors1, keypoints2, descriptors2)
 
-    # 			h, mask = cv2.findHomography(points1, points2, cv2.RANSAC)
+#     # 			h, mask = cv2.findHomography(points1, points2, cv2.RANSAC)
 
-    # 			pairwise_matches.append(
-    # 				(img1_ind, img2_ind, min_distance, h, mask))
+#     # 			pairwise_matches.append(
+#     # 				(img1_ind, img2_ind, min_distance, h, mask))
 
-# References
-# https://colab.research.google.com/drive/11Md7HWh2ZV6_g3iCYSUw76VNr4HzxcX5#scrollTo=6eHgWAorE9gf
-# https://www.learnopencv.com/image-alignment-feature-based-using-opencv-c-python/
+# # References
+# # https://colab.research.google.com/drive/11Md7HWh2ZV6_g3iCYSUw76VNr4HzxcX5#scrollTo=6eHgWAorE9gf
+# # https://www.learnopencv.com/image-alignment-feature-based-using-opencv-c-python/
 
-#    # Use homography
-#   height, width, channels = im2.shape
-#   im1Reg = cv2.warpPerspective(im1, h, (width, height))
+# #    # Use homography
+# #   height, width, channels = im2.shape
+# #   im1Reg = cv2.warpPerspective(im1, h, (width, height))
