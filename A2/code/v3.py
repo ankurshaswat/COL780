@@ -18,7 +18,7 @@ FEATURE_EXTRACTOR = 'orb'  # 'sift'|'surf'|'brisk'|'orb'
 FEATURE_MATCHER = 'bf'  # 'bf'|'knn'
 GOOD_MATCH_PERCENT = 1 # Try 0.15
 LOWES_RATIO = 0.75
-
+SCALING = 50 # Percent scale down
 
 def get_args():
     """
@@ -30,6 +30,8 @@ def get_args():
                             help="path to directory containing image group directories")
     arg_parser.add_argument("-o", "--output", type=str, default="../OutSample",
                             help="path to directory to output combined images")
+    arg_parser.add_argument("-s", "--scale", type=int, default=100,
+                            help="Percentage of final scaled down image relative to original")
     return arg_parser.parse_args()
 
 
@@ -206,6 +208,7 @@ for image_grp in IMAGE_GRP_FOLDERS:
     print('[INFO] working on image - '+final_image_name)
     images = load_images(ARGS['images']+'/'+image_grp)
     print("[INFO] Number of components = ", len(images))
+    images = [cv2.resize(x, (((x.shape[1])*SCALING)//100, (x.shape[0]*SCALING)//100)) for x in images]
     grayscale_imgs = [convert_to_grayscale(x) for x in images]
     described_imgs = [get_descriptors(x) for x in grayscale_imgs]
 
