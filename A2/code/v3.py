@@ -16,7 +16,7 @@ print('Is CV3 Or Better = ', imutils.is_cv3(or_better=True))
 
 FEATURE_EXTRACTOR = 'orb'  # 'sift'|'surf'|'brisk'|'orb'
 FEATURE_MATCHER = 'bf'  # 'bf'|'knn'
-GOOD_MATCH_PERCENT = 1
+GOOD_MATCH_PERCENT = 1 # Try 0.15
 LOWES_RATIO = 0.75
 
 
@@ -197,7 +197,7 @@ ARGS = vars(get_args())
 
 print("[INFO] loading images...")
 IMAGE_GRP_FOLDERS = sorted(os.listdir(ARGS["images"]))
-print('Found following image groups -', IMAGE_GRP_FOLDERS)
+print('[INFO] Found following image groups -', IMAGE_GRP_FOLDERS)
 
 MATCHER = create_matcher()
 
@@ -205,51 +205,51 @@ for image_grp in IMAGE_GRP_FOLDERS:
     final_image_name = image_grp+'.jpg'
     print('[INFO] working on image - '+final_image_name)
     images = load_images(ARGS['images']+'/'+image_grp)
+    print("[INFO] Number of components = ", len(images))
     grayscale_imgs = [convert_to_grayscale(x) for x in images]
     described_imgs = [get_descriptors(x) for x in grayscale_imgs]
 
-    pairwise_matches = []
-
-    img1, img1_grayscale, img1_described = images[0], grayscale_imgs[0], described_imgs[0]
-    (kp1, dsc1) = img1_described
-
-    images.pop(0)
-    grayscale_imgs.pop(0)
-    described_imgs.pop(0)
-
     while len(described_imgs) > 1:
-        # for (ind1, ind2) in itertools.combinations(range(len(images)), 2):
-        #     img1, img1_grayscale, img1_described = images[ind1], grayscale_imgs[ind1], described_imgs[ind1]
-        #     img2, img2_grayscale, img2_described = images[ind2], grayscale_imgs[ind2], described_imgs[ind2]
-        min_dist = 10000
-        best_match = 0
-        best_match_data = (0, 0)
-        for img2_ind, img2_described in enumerate(described_imgs):
-            (kp2, dsc2) = img2_described
+        print(len(described_imgs))
+
+        best_pair = (0, 0)
+        max_num_matches = 0
+        min_distance = 10000
+
+        for (ind1, ind2) in itertools.combinations(range(len(images)), 2):
+            if ind1 >= ind2:
+                continue
+
+            img1, img1_grayscale, img1_described = images[ind1], grayscale_imgs[ind1], described_imgs[ind1]
+            img2, img2_grayscale, img2_described = images[ind2], grayscale_imgs[ind2], described_imgs[ind2]
+
+            (kp1, dsc1), (kp2, dsc2) = img1_described, img2_described
             avg_distance, points1, points2, matches = get_matches(
                 kp1, dsc1, kp2, dsc2)
-            print((img2_ind, avg_distance))
-            if avg_distance < min_dist:
-                best_match = img2_ind
-                min_dist = avg_distance
-                best_match_data = (points1, points2, matches)
 
-        img2, img2_grayscale, img2_described = images[
-            best_match], grayscale_imgs[best_match], described_imgs[best_match]
-        (kp2, dsc2) = img2_described
+            # if len(matches) > max_num_matches or (len(matches) == max_num_matches and avg_distance < min_distance):
+            if avg_distance < min_distance or (len(matches) > max_num_matches and avg_distance == min_distance):
+                best_pair = (ind1, ind2)
+                max_num_matches = len(matches)
+                min_distance = avg_distance
 
-        print("Final Best match: ", best_match)
+        print("Final Best match: ", best_pair)
 
-        images.pop(best_match)
-        grayscale_imgs.pop(best_match)
-        described_imgs.pop(best_match)
+        img1 = images.pop(best_pair[1])
+        img2 = images.pop(best_pair[0])
+        img1_grayscale = grayscale_imgs.pop(best_pair[1])
+        img2_grayscale = grayscale_imgs.pop(best_pair[0])
+        img1_described = described_imgs.pop(best_pair[1])
+        img2_described = described_imgs.pop(best_pair[0])
 
+        (kp1, dsc1), (kp2, dsc2) = img1_described, img2_described
+        avg_distance, points1, points2, matches = get_matches(
+            kp1, dsc1, kp2, dsc2)
         # display_image_with_keypoints(img1_grayscale, kp1, img2_grayscale, kp2)
         display_image_with_matches(
-            img1_grayscale, kp1, img2_grayscale, kp2, best_match_data[2])
+            img1_grayscale, kp1, img2_grayscale, kp2, matches)
 
-        h, mask = cv2.findHomography(
-            best_match_data[0], best_match_data[1], cv2.RANSAC)
+        h, mask = cv2.findHomography(points1, points2, cv2.RANSAC)
         height, width, channels = img2.shape
 
         # Apply panorama correction
@@ -291,6 +291,9 @@ for image_grp in IMAGE_GRP_FOLDERS:
         img1_described = get_descriptors(img1_grayscale)
         (kp1, dsc1) = img1_described
 
+        images.append(img1)
+        grayscale_imgs.append(img1_grayscale)
+        described_imgs.append(img1_described)
 #         print(img1.shape)
 #         # scale_percent = 50
 #         width = int(img2.shape[1])
