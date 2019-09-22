@@ -14,11 +14,11 @@ import numpy as np
 
 print('Is CV3 Or Better = ', imutils.is_cv3(or_better=True))
 
-FEATURE_EXTRACTOR = 'orb'  # 'sift'|'surf'|'brisk'|'orb'
+FEATURE_EXTRACTOR = 'sift'  # 'sift'|'surf'|'brisk'|'orb'
 FEATURE_MATCHER = 'bf'  # 'bf'|'knn'
 GOOD_MATCH_PERCENT = 1 # Try 0.15
 LOWES_RATIO = 0.75
-SCALING = 50 # Percent scale down
+SCALING = 40 # Percent scale down
 
 def get_args():
     """
