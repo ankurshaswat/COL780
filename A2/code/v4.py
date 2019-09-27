@@ -207,7 +207,14 @@ def combine_images(img1_loc, img2_loc, h_val):
 
     result = cv2.warpPerspective(
         img2_loc, h_translation.dot(h_val), (xmax-xmin, ymax-ymin))
-    result[t_val[1]:height1+t_val[1], t_val[0]:width1+t_val[0]] = img1_loc
+    for x_val in range(0, height1):
+        for y_val in range(0, width1):
+            if not (img1_loc[x_val, y_val] == [0, 0, 0]).all():
+                result[x_val+t_val[1], y_val+t_val[0]] = img1_loc[x_val, y_val]
+                # print(img1_loc[x_val, y_val])
+            # else:
+                # print(img1_loc[x_val, y_val])
+    # result[t_val[1]:height1+t_val[1], t_val[0]:width1+t_val[0]] = img1_loc
     return (result, h_translation)
 
 
@@ -480,36 +487,36 @@ for image_grp in IMAGE_GRP_FOLDERS:
 
     print(fin_order)
 
-    for i, ind in enumerate(order):
-        if i == 0:
-            base = images[ind]
-            continue
+    # for i, ind in enumerate(order):
+    #     if i == 0:
+    #         base = images[ind]
+    #         continue
 
-        grayscale_base = convert_to_grayscale(base)
-        grayscale_new = convert_to_grayscale(images[ind])
-        described_base = get_descriptors(grayscale_base)
-        described_new = get_descriptors(grayscale_new)
+    #     grayscale_base = convert_to_grayscale(base)
+    #     grayscale_new = convert_to_grayscale(images[ind])
+    #     described_base = get_descriptors(grayscale_base)
+    #     described_new = get_descriptors(grayscale_new)
 
-        (kp1, dsc1), (kp2, dsc2) = described_base, described_new
+    #     (kp1, dsc1), (kp2, dsc2) = described_base, described_new
 
-        if i <= centre_ind:
-            print("New on left")
-            avg_distance, points2, points1, matches = get_matches(
-                kp2, dsc2, kp1, dsc1)
-            display_image_with_matches(
-                grayscale_new, kp2, grayscale_base, kp1, matches)
-            h, mask = cv2.findHomography(points1, points2, cv2.RANSAC)
-            base, _ = combine_images(images[ind], base, h)
-        else:
-            avg_distance, points1, points2, matches = get_matches(
-                kp1, dsc1, kp2, dsc2)
-            display_image_with_matches(
-                grayscale_base, kp1, grayscale_new, kp2, matches)
-            h, mask = cv2.findHomography(points2, points1, cv2.RANSAC)
-            base, _ = combine_images(base, images[ind], h)
+    #     if i <= centre_ind:
+    #         print("New on left")
+    #         avg_distance, points2, points1, matches = get_matches(
+    #             kp2, dsc2, kp1, dsc1)
+    #         display_image_with_matches(
+    #             grayscale_new, kp2, grayscale_base, kp1, matches)
+    #         h, mask = cv2.findHomography(points1, points2, cv2.RANSAC)
+    #         base, _ = combine_images(images[ind], base, h)
+    #     else:
+    #         avg_distance, points1, points2, matches = get_matches(
+    #             kp1, dsc1, kp2, dsc2)
+    #         display_image_with_matches(
+    #             grayscale_base, kp1, grayscale_new, kp2, matches)
+    #         h, mask = cv2.findHomography(points2, points1, cv2.RANSAC)
+    #         base, _ = combine_images(base, images[ind], h)
 
-        plt.imshow(base)
-        plt.show()
+    #     plt.imshow(base)
+    #     plt.show()
 
     height, width, channels = images[fin_order[0]].shape
     fwidth = width
