@@ -143,9 +143,9 @@ def get_matches(kp1_loc, dsc1_loc, kp2_loc, dsc2_loc):
     if FEATURE_MATCHER == 'bf':
         raw_matches = MATCHER.match(dsc1_loc, dsc2_loc)
         raw_matches.sort(key=lambda x: x.distance)
-        print("Brute Force #matches = ", len(raw_matches))
         # num_good_matches = int(len(raw_matches) * GOOD_MATCH_PERCENT)
         matches_loc = raw_matches[:NUM_GOOD_MATCHES]
+        print("Brute Force #matches = ", len(raw_matches), " and avd_dist: ", average(matches_loc))
 
     else:
         raw_matches = MATCHER.knnMatch(dsc1_loc, dsc2_loc, 2)
@@ -189,6 +189,40 @@ def combine_images(img1_loc, img2_loc, h_val):
     result[t_val[1]:height1+t_val[1], t_val[0]:width1+t_val[0]] = img1_loc
     return (result, h_translation)
 
+def correct_hom(img2_loc, h_val):
+    # height1, width1 = img1_loc.shape[:2]
+    height2, width2 = img2_loc.shape[:2]
+    # pts1 = np.array([[0, 0], [0, height1], [width1, height1], [width1, 0]],
+                    # np.float32).reshape(-1, 1, 2)
+    pts2 = np.array([[0, 0], [0, height2], [width2, height2], [width2, 0]], np.float32).reshape(-1, 1, 2)
+    pts2_ = cv2.perspectiveTransform(pts2, h_val)
+    # pts = np.concatenate((pts2), axis=0)
+    # pts2_ = cv2.warpPerspective(img2_loc, h_translation.dot(h_val), (xmax-xmin, ymax-ymin))
+    pts = pts2_
+    [xmin, ymin] = np.int32(pts.min(axis=0).ravel() - 0.5)
+    [xmax, ymax] = np.int32(pts.max(axis=0).ravel() + 0.5)
+    # if xmin <= 0 or ymin <= 0:
+    print("Left correction homography")
+    t_val = [-xmin, -ymin]
+    h_translation = np.array(
+        [[1, 0, t_val[0]], [0, 1, t_val[1]], [0, 0, 1]])  # translate
+    # else:
+    # print("Right correction homography: ", (xmax, width2), (ymax, height2))
+    # t_val = [-1*(xmax-width2), -1*(ymax-height2)]
+    # h_translation = np.array(
+    #     [[1, 0, t_val[0]], [0, 1, t_val[1]], [0, 0, 1]])  # translate
+
+    result = cv2.warpPerspective(img2_loc, h_translation.dot(h_val), (xmax-xmin, ymax-ymin))
+    gray = cv2.cvtColor(result, cv2.COLOR_BGR2GRAY)
+    thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY)[1]
+    cnts = cv2.findContours(
+        thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = imutils.grab_contours(cnts)
+    c = max(cnts, key=cv2.contourArea)
+    (x, y, w, h) = cv2.boundingRect(c)
+    result = result[y:y + h, x:x + w]
+
+    return result
 
 def get_relative_position(img_1, points_1, img_2, points_2):
     """
@@ -251,15 +285,19 @@ for image_grp in IMAGE_GRP_FOLDERS:
                                  (x.shape[0]*SCALING)//100)) for x in images]
     grayscale_imgs = [convert_to_grayscale(x) for x in images]
     described_imgs = [get_descriptors(x) for x in grayscale_imgs]
-    order = [i for i in range(len(images))]
+    # order = [i for i in range(len(images))]
     fin_hom = {}
     pair_hom = {}
+    # for i in images:
+    #     plt.imshow(i)
+    #     plt.show()
 
     dummy = None
     for (ind1, ind2) in itertools.combinations(range(len(images)), 2):
         if ind1 >= ind2:
             continue
 
+        print("Ongoing: ", (ind1, ind2))
         img1, img1_grayscale, img1_described = images[ind1], grayscale_imgs[ind1], described_imgs[ind1]
         img2, img2_grayscale, img2_described = images[ind2], grayscale_imgs[ind2], described_imgs[ind2]
 
@@ -268,14 +306,14 @@ for image_grp in IMAGE_GRP_FOLDERS:
             kp1, dsc1, kp2, dsc2)
         h, mask = cv2.findHomography(points1, points2, cv2.RANSAC)
         pair_hom[(ind1, ind2)] = (h, avg_distance, matches)
-
         # loc1, loc2, conf = get_relative_position(img1, points1, img2, points2)
         # print(loc1, loc2, conf)
-        display_image_with_matches(img1, kp1, img2, kp2, matches)
+        # display_image_with_matches(img1, kp1, img2, kp2, matches)
 
     fin_hom[0] = np.identity(pair_hom[(0, 1)][0].shape[0])
 
     visited = [0]
+    selected = [(0,0)]
     for ind in range(len(images)-1):
         best_pair = (ind, ind)
         max_num_matches = 0
@@ -305,6 +343,7 @@ for image_grp in IMAGE_GRP_FOLDERS:
             non_vis = best_pair[0]
 
         visited.append(non_vis)
+        selected.append((non_vis, vis))
         # print(best_pair)
         # print(visited)
         # print(fin_hom)
@@ -316,25 +355,125 @@ for image_grp in IMAGE_GRP_FOLDERS:
             fin_hom[non_vis] = np.dot(
                 fin_hom[vis], np.linalg.inv(pair_hom[(vis, non_vis)][0]))
 
-    height, width, channels = images[0].shape
+    # height, width, channels = images[0].shape
+    # fwidth = width
+    # fheight = height
+    # base = copy.deepcopy(images[0])
+    # cum_trans = np.identity(pair_hom[(0, 1)][0].shape[0])
+    # trans[2][2] = 0
+    left_e = 0
+    rot_r = 0
+    right_e = 0
+    rot_l = 0
+    order = [0]
+    centre_ind = 0
+    # print(selected)
+    for ind in range(1, len(selected)):
+        # height, width, channels = base.shape
+        if (selected[ind][1] == left_e) and (rot_r == 1):
+            # if (order[centre_ind], order[centre_ind-1]) in pair_hom:
+            #     # base = cv2.warpPerspective(base, pair_hom[(order[centre_ind], order[centre_ind-1])][0], (width, height))
+            #     base = correct_hom(base, pair_hom[(order[centre_ind], order[centre_ind-1])][0])
+            # else:
+            #     # base = cv2.warpPerspective(base, np.linalg.inv(pair_hom[(order[centre_ind-1], order[centre_ind])][0]), (width, height))
+            #     base = correct_hom(base, np.linalg.inv(pair_hom[(order[centre_ind-1], order[centre_ind])][0]))
+
+            # plt.imshow(base)
+            # plt.show()
+            centre_ind -= 1
+            # if order[centre_ind] != 0:
+            #     fin_hom[selected[ind][0]] = np.dot(pair_hom[(0, order[centre_ind])][0], fin_hom[selected[ind][0]])
+
+            rot_r = 0
+            order.insert(0, selected[ind][0])
+            centre_ind += 1
+        elif (selected[ind][1] == right_e) and (rot_l == 1):
+            # if (order[centre_ind], order[centre_ind+1]) in pair_hom:
+            #     # base = cv2.warpPerspective(base, pair_hom[(order[centre_ind], order[centre_ind+1])][0], (width, height))
+            #     base = correct_hom(base, pair_hom[(order[centre_ind], order[centre_ind+1])][0])
+            # else:
+            #     # base = cv2.warpPerspective(base, np.linalg.inv(pair_hom[(order[centre_ind+1], order[centre_ind])][0]), (width, height))
+            #     base = correct_hom(base, np.linalg.inv(pair_hom[(order[centre_ind+1], order[centre_ind])][0]))
+
+            # plt.imshow(base)
+            # plt.show()
+            centre_ind += 1
+            # if order[centre_ind] != 0:
+            #     fin_hom[selected[ind][0]] = np.dot(pair_hom[(0, order[centre_ind])][0], fin_hom[selected[ind][0]])
+            rot_l = 0
+            order.append(selected[ind][0])
+        elif selected[ind][1] == left_e:
+            if rot_l == 1:
+                rot_r = 0
+                rot_l = 0
+            else:
+                rot_r = 1
+            order.insert(0, selected[ind][0])
+            centre_ind += 1
+        elif selected[ind][1] == right_e:
+            if rot_r == 1:
+                rot_l = 0
+                rot_r = 0
+            else:
+                rot_l = 1
+            order.append(selected[ind][0])
+        else:
+            print("Whoops!!! This shouldn't happen this way bro!!!!!")
+            print("selected: ", selected)
+            print("Trouble makers: ", selected[ind])
+            exit(0)
+        left_e = order[0]
+        right_e = order[len(order)-1]
+
+
+        # base, trans = combine_images(base, images[selected[ind][0]], fin_hom[selected[ind][0]])
+        # cum_trans = trans.dot(cum_trans)
+
+        print("Order of images: ", order)
+        # plt.imshow(base)
+        # plt.show()
+        # gray = cv2.cvtColor(base, cv2.COLOR_BGR2GRAY)
+        # thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY)[1]
+        # cnts = cv2.findContours(
+        #     thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # cnts = imutils.grab_contours(cnts)
+        # c = max(cnts, key=cv2.contourArea)
+        # (x, y, w, h) = cv2.boundingRect(c)
+        # base = base[y:y + h, x:x + w]
+
+    print("Final Centre ID and order: ", centre_ind, " ", order)
+    if order[centre_ind] != 0:
+        for i in range(len(images)):
+            fin_hom[i] = np.dot(pair_hom[(0, order[centre_ind])][0], fin_hom[i])
+
+    fin_order = []
+    for i in range(len(images)):
+        if centre_ind+i < len(order):
+            fin_order.append(order[centre_ind+i])
+        if i != 0 and centre_ind-i >= 0:
+            fin_order.append(order[centre_ind-i])
+
+    print(fin_order)
+
+    height, width, channels = images[fin_order[0]].shape
     fwidth = width
     fheight = height
-    base = copy.deepcopy(images[0])
+    base = copy.deepcopy(images[fin_order[0]])
     cum_trans = np.identity(pair_hom[(0, 1)][0].shape[0])
-    # trans[2][2] = 0
-    for ind in range(1, len(images)):
-        # Apply panorama correction
-        # fwidth += width
-        # fheight += height
-        # img1 = cv2.warpPerspective(images[i], fin_hom[i], (fwidth, fheight))
-        base, trans = combine_images(
-            base, images[ind], np.dot(cum_trans, fin_hom[ind]))
-        cum_trans = trans.dot(cum_trans)
-        # img1[0:base.shape[0], 0:base.shape[1]] = base
-        # base = copy.deepcopy(img1)
 
+    for i in fin_order:
+        base, trans = combine_images(base, images[i], np.dot(cum_trans, fin_hom[i]))
+        cum_trans = trans.dot(cum_trans)
         plt.imshow(base)
         plt.show()
+        gray = cv2.cvtColor(base, cv2.COLOR_BGR2GRAY)
+        thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY)[1]
+        cnts = cv2.findContours(
+            thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        cnts = imutils.grab_contours(cnts)
+        c = max(cnts, key=cv2.contourArea)
+        (x, y, w, h) = cv2.boundingRect(c)
+        base = base[y:y + h, x:x + w]
 
         # # T1 = np.matrix([[1., 0., 0. + width / 2],
         # #                   [0., 1., 0. + height / 2],
