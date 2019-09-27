@@ -145,7 +145,8 @@ def get_matches(kp1_loc, dsc1_loc, kp2_loc, dsc2_loc):
         raw_matches.sort(key=lambda x: x.distance)
         # num_good_matches = int(len(raw_matches) * GOOD_MATCH_PERCENT)
         matches_loc = raw_matches[:NUM_GOOD_MATCHES]
-        print("Brute Force #matches = ", len(raw_matches), " and avd_dist: ", average(matches_loc))
+        print("Brute Force #matches = ", len(raw_matches),
+              " and avd_dist: ", average(matches_loc))
 
     else:
         raw_matches = MATCHER.knnMatch(dsc1_loc, dsc2_loc, 2)
@@ -163,6 +164,26 @@ def get_matches(kp1_loc, dsc1_loc, kp2_loc, dsc2_loc):
         points2_loc[i, :] = kp2_loc[match.trainIdx].pt
 
     return average(matches_loc), points1_loc, points2_loc, matches_loc
+
+
+def simple_combine(img1_loc, img2_loc, h_val):
+    width = img1_loc.shape[1] + img2_loc.shape[1]
+    height = img1_loc.shape[0] + img2_loc.shape[0]
+    img2_loc = cv2.warpPerspective(img2_loc, h_val, (width, height))
+    img2_loc[0:img1_loc.shape[0], 0:img1_loc.shape[1]] = img1_loc
+    gray = cv2.cvtColor(img2_loc, cv2.COLOR_BGR2GRAY)
+    thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY)[1]
+
+    cnts = cv2.findContours(
+        thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = imutils.grab_contours(cnts)
+
+    c = max(cnts, key=cv2.contourArea)
+
+    (x, y, w, h) = cv2.boundingRect(c)
+
+    img = img2_loc[y:y + h, x:x + w]
+    return img
 
 
 def combine_images(img1_loc, img2_loc, h_val):
@@ -189,12 +210,14 @@ def combine_images(img1_loc, img2_loc, h_val):
     result[t_val[1]:height1+t_val[1], t_val[0]:width1+t_val[0]] = img1_loc
     return (result, h_translation)
 
+
 def correct_hom(img2_loc, h_val):
     # height1, width1 = img1_loc.shape[:2]
     height2, width2 = img2_loc.shape[:2]
     # pts1 = np.array([[0, 0], [0, height1], [width1, height1], [width1, 0]],
-                    # np.float32).reshape(-1, 1, 2)
-    pts2 = np.array([[0, 0], [0, height2], [width2, height2], [width2, 0]], np.float32).reshape(-1, 1, 2)
+    # np.float32).reshape(-1, 1, 2)
+    pts2 = np.array([[0, 0], [0, height2], [width2, height2], [
+                    width2, 0]], np.float32).reshape(-1, 1, 2)
     pts2_ = cv2.perspectiveTransform(pts2, h_val)
     # pts = np.concatenate((pts2), axis=0)
     # pts2_ = cv2.warpPerspective(img2_loc, h_translation.dot(h_val), (xmax-xmin, ymax-ymin))
@@ -212,7 +235,8 @@ def correct_hom(img2_loc, h_val):
     # h_translation = np.array(
     #     [[1, 0, t_val[0]], [0, 1, t_val[1]], [0, 0, 1]])  # translate
 
-    result = cv2.warpPerspective(img2_loc, h_translation.dot(h_val), (xmax-xmin, ymax-ymin))
+    result = cv2.warpPerspective(
+        img2_loc, h_translation.dot(h_val), (xmax-xmin, ymax-ymin))
     gray = cv2.cvtColor(result, cv2.COLOR_BGR2GRAY)
     thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY)[1]
     cnts = cv2.findContours(
@@ -223,6 +247,7 @@ def correct_hom(img2_loc, h_val):
     result = result[y:y + h, x:x + w]
 
     return result
+
 
 def get_relative_position(img_1, points_1, img_2, points_2):
     """
@@ -313,7 +338,7 @@ for image_grp in IMAGE_GRP_FOLDERS:
     fin_hom[0] = np.identity(pair_hom[(0, 1)][0].shape[0])
 
     visited = [0]
-    selected = [(0,0)]
+    selected = [(0, 0)]
     for ind in range(len(images)-1):
         best_pair = (ind, ind)
         max_num_matches = 0
@@ -425,7 +450,6 @@ for image_grp in IMAGE_GRP_FOLDERS:
         left_e = order[0]
         right_e = order[len(order)-1]
 
-
         # base, trans = combine_images(base, images[selected[ind][0]], fin_hom[selected[ind][0]])
         # cum_trans = trans.dot(cum_trans)
 
@@ -444,7 +468,8 @@ for image_grp in IMAGE_GRP_FOLDERS:
     print("Final Centre ID and order: ", centre_ind, " ", order)
     if order[centre_ind] != 0:
         for i in range(len(images)):
-            fin_hom[i] = np.dot(pair_hom[(0, order[centre_ind])][0], fin_hom[i])
+            fin_hom[i] = np.dot(
+                pair_hom[(0, order[centre_ind])][0], fin_hom[i])
 
     fin_order = []
     for i in range(len(images)):
@@ -455,6 +480,37 @@ for image_grp in IMAGE_GRP_FOLDERS:
 
     print(fin_order)
 
+    for i, ind in enumerate(order):
+        if i == 0:
+            base = images[ind]
+            continue
+
+        grayscale_base = convert_to_grayscale(base)
+        grayscale_new = convert_to_grayscale(images[ind])
+        described_base = get_descriptors(grayscale_base)
+        described_new = get_descriptors(grayscale_new)
+
+        (kp1, dsc1), (kp2, dsc2) = described_base, described_new
+
+        if i <= centre_ind:
+            print("New on left")
+            avg_distance, points2, points1, matches = get_matches(
+                kp2, dsc2, kp1, dsc1)
+            display_image_with_matches(
+                grayscale_new, kp2, grayscale_base, kp1, matches)
+            h, mask = cv2.findHomography(points1, points2, cv2.RANSAC)
+            base, _ = combine_images(images[ind], base, h)
+        else:
+            avg_distance, points1, points2, matches = get_matches(
+                kp1, dsc1, kp2, dsc2)
+            display_image_with_matches(
+                grayscale_base, kp1, grayscale_new, kp2, matches)
+            h, mask = cv2.findHomography(points2, points1, cv2.RANSAC)
+            base, _ = combine_images(base, images[ind], h)
+
+        plt.imshow(base)
+        plt.show()
+
     height, width, channels = images[fin_order[0]].shape
     fwidth = width
     fheight = height
@@ -462,7 +518,8 @@ for image_grp in IMAGE_GRP_FOLDERS:
     cum_trans = np.identity(pair_hom[(0, 1)][0].shape[0])
 
     for i in fin_order:
-        base, trans = combine_images(base, images[i], np.dot(cum_trans, fin_hom[i]))
+        base, trans = combine_images(
+            base, images[i], np.dot(cum_trans, fin_hom[i]))
         cum_trans = trans.dot(cum_trans)
         plt.imshow(base)
         plt.show()
