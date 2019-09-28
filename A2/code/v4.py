@@ -207,13 +207,22 @@ def combine_images(img1_loc, img2_loc, h_val):
 
     result = cv2.warpPerspective(
         img2_loc, h_translation.dot(h_val), (xmax-xmin, ymax-ymin))
-    for x_val in range(0, height1):
-        for y_val in range(0, width1):
-            if not (img1_loc[x_val, y_val] == [0, 0, 0]).all():
-                result[x_val+t_val[1], y_val+t_val[0]] = img1_loc[x_val, y_val]
-                # print(img1_loc[x_val, y_val])
-            # else:
-                # print(img1_loc[x_val, y_val])
+
+    plt.imshow(result)
+    plt.show()
+    img1_loc = np.array(img1_loc)
+    img1 = np.sum(img1_loc, axis = 2)
+    indices1 = np.argwhere((img1 != 0))
+    indices = indices1 + [t_val[1], t_val[0]]
+    result[tuple(zip(*indices))] = img1_loc[tuple(zip(*indices1))]
+
+    # for x_val in range(0, height1):
+    #     for y_val in range(0, width1):
+    #         if not (img1_loc[x_val, y_val] == [0, 0, 0]).all():
+    #             result[x_val+t_val[1], y_val+t_val[0]] = img1_loc[x_val, y_val]
+    #             # print(img1_loc[x_val, y_val].shape)
+    #         # else:
+    #             # print(img1_loc[x_val, y_val])
     # result[t_val[1]:height1+t_val[1], t_val[0]:width1+t_val[0]] = img1_loc
     return (result, h_translation)
 
@@ -399,39 +408,14 @@ for image_grp in IMAGE_GRP_FOLDERS:
     rot_l = 0
     order = [0]
     centre_ind = 0
-    # print(selected)
     for ind in range(1, len(selected)):
-        # height, width, channels = base.shape
         if (selected[ind][1] == left_e) and (rot_r == 1):
-            # if (order[centre_ind], order[centre_ind-1]) in pair_hom:
-            #     # base = cv2.warpPerspective(base, pair_hom[(order[centre_ind], order[centre_ind-1])][0], (width, height))
-            #     base = correct_hom(base, pair_hom[(order[centre_ind], order[centre_ind-1])][0])
-            # else:
-            #     # base = cv2.warpPerspective(base, np.linalg.inv(pair_hom[(order[centre_ind-1], order[centre_ind])][0]), (width, height))
-            #     base = correct_hom(base, np.linalg.inv(pair_hom[(order[centre_ind-1], order[centre_ind])][0]))
-
-            # plt.imshow(base)
-            # plt.show()
             centre_ind -= 1
-            # if order[centre_ind] != 0:
-            #     fin_hom[selected[ind][0]] = np.dot(pair_hom[(0, order[centre_ind])][0], fin_hom[selected[ind][0]])
-
             rot_r = 0
             order.insert(0, selected[ind][0])
             centre_ind += 1
         elif (selected[ind][1] == right_e) and (rot_l == 1):
-            # if (order[centre_ind], order[centre_ind+1]) in pair_hom:
-            #     # base = cv2.warpPerspective(base, pair_hom[(order[centre_ind], order[centre_ind+1])][0], (width, height))
-            #     base = correct_hom(base, pair_hom[(order[centre_ind], order[centre_ind+1])][0])
-            # else:
-            #     # base = cv2.warpPerspective(base, np.linalg.inv(pair_hom[(order[centre_ind+1], order[centre_ind])][0]), (width, height))
-            #     base = correct_hom(base, np.linalg.inv(pair_hom[(order[centre_ind+1], order[centre_ind])][0]))
-
-            # plt.imshow(base)
-            # plt.show()
             centre_ind += 1
-            # if order[centre_ind] != 0:
-            #     fin_hom[selected[ind][0]] = np.dot(pair_hom[(0, order[centre_ind])][0], fin_hom[selected[ind][0]])
             rot_l = 0
             order.append(selected[ind][0])
         elif selected[ind][1] == left_e:
@@ -453,30 +437,23 @@ for image_grp in IMAGE_GRP_FOLDERS:
             print("Whoops!!! This shouldn't happen this way bro!!!!!")
             print("selected: ", selected)
             print("Trouble makers: ", selected[ind])
-            exit(0)
+            # exit(0)
         left_e = order[0]
         right_e = order[len(order)-1]
 
-        # base, trans = combine_images(base, images[selected[ind][0]], fin_hom[selected[ind][0]])
-        # cum_trans = trans.dot(cum_trans)
-
         print("Order of images: ", order)
-        # plt.imshow(base)
-        # plt.show()
-        # gray = cv2.cvtColor(base, cv2.COLOR_BGR2GRAY)
-        # thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY)[1]
-        # cnts = cv2.findContours(
-        #     thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        # cnts = imutils.grab_contours(cnts)
-        # c = max(cnts, key=cv2.contourArea)
-        # (x, y, w, h) = cv2.boundingRect(c)
-        # base = base[y:y + h, x:x + w]
 
     print("Final Centre ID and order: ", centre_ind, " ", order)
     if order[centre_ind] != 0:
         for i in range(len(images)):
             fin_hom[i] = np.dot(
                 pair_hom[(0, order[centre_ind])][0], fin_hom[i])
+
+    # if len(images)%2 == 0:
+    #     if centre_ind < len(images)/2:
+    #         centre_ind += 1
+    #     else:
+    #         centre_ind -= 1
 
     fin_order = []
     for i in range(len(images)):
@@ -487,46 +464,14 @@ for image_grp in IMAGE_GRP_FOLDERS:
 
     print(fin_order)
 
-    # for i, ind in enumerate(order):
-    #     if i == 0:
-    #         base = images[ind]
-    #         continue
-
-    #     grayscale_base = convert_to_grayscale(base)
-    #     grayscale_new = convert_to_grayscale(images[ind])
-    #     described_base = get_descriptors(grayscale_base)
-    #     described_new = get_descriptors(grayscale_new)
-
-    #     (kp1, dsc1), (kp2, dsc2) = described_base, described_new
-
-    #     if i <= centre_ind:
-    #         print("New on left")
-    #         avg_distance, points2, points1, matches = get_matches(
-    #             kp2, dsc2, kp1, dsc1)
-    #         display_image_with_matches(
-    #             grayscale_new, kp2, grayscale_base, kp1, matches)
-    #         h, mask = cv2.findHomography(points1, points2, cv2.RANSAC)
-    #         base, _ = combine_images(images[ind], base, h)
-    #     else:
-    #         avg_distance, points1, points2, matches = get_matches(
-    #             kp1, dsc1, kp2, dsc2)
-    #         display_image_with_matches(
-    #             grayscale_base, kp1, grayscale_new, kp2, matches)
-    #         h, mask = cv2.findHomography(points2, points1, cv2.RANSAC)
-    #         base, _ = combine_images(base, images[ind], h)
-
-    #     plt.imshow(base)
-    #     plt.show()
-
     height, width, channels = images[fin_order[0]].shape
     fwidth = width
     fheight = height
     base = copy.deepcopy(images[fin_order[0]])
     cum_trans = np.identity(pair_hom[(0, 1)][0].shape[0])
 
-    for i in fin_order:
-        base, trans = combine_images(
-            base, images[i], np.dot(cum_trans, fin_hom[i]))
+    for i in fin_order[1:]:
+        base, trans = combine_images(base, images[i], np.dot(cum_trans, fin_hom[i]))
         cum_trans = trans.dot(cum_trans)
         plt.imshow(base)
         plt.show()
@@ -538,38 +483,3 @@ for image_grp in IMAGE_GRP_FOLDERS:
         c = max(cnts, key=cv2.contourArea)
         (x, y, w, h) = cv2.boundingRect(c)
         base = base[y:y + h, x:x + w]
-
-        # # T1 = np.matrix([[1., 0., 0. + width / 2],
-        # #                   [0., 1., 0. + height / 2],
-        # #                   [0., 0., 1.]])
-
-        # # img1 = cv2.warpPerspective(img1, T1*h, (width, height))
-        # # img2 = cv2.warpPerspective(img2, h, (width, height))
-        # # print(img1.shape)
-        # # print(img2.shape)
-
-        # img1[0:img2.shape[0], 0:img2.shape[1]] = img2
-        # plt.imshow(img1)
-        # plt.show()
-        # gray = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
-        # thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY)[1]
-
-        # cnts = cv2.findContours(
-        #     thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        # cnts = imutils.grab_contours(cnts)
-
-        # c = max(cnts, key=cv2.contourArea)
-
-        # (x, y, w, h) = cv2.boundingRect(c)
-
-        # img1 = img1[y:y + h, x:x + w]
-
-        # img1_grayscale = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
-        # img1_described = get_descriptors(img1_grayscale)
-        # (kp1, dsc1) = img1_described
-
-        # images.append(img1)
-        # grayscale_imgs.append(img1_grayscale)
-        # described_imgs.append(img1_described)
-        # plt.imshow(img1)
-        # plt.show()
