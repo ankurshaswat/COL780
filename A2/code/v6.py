@@ -314,8 +314,16 @@ def get_hom(a, b):
     (kp1, dsc1), (kp2, dsc2) = descb, desca
     avg_distance, points1, points2, matches = get_matches(kp1, dsc1, kp2, dsc2)
     h, mask = cv2.findHomography(points1, points2, cv2.RANSAC)
-    display_image_with_matches(ima,kp2,imb,kp1,matches)
     return h
+
+def get_dist(a, b):
+    ima = convert_to_grayscale(a)
+    imb = convert_to_grayscale(b)
+    desca = get_descriptors(ima)
+    descb = get_descriptors(imb)
+    (kp1, dsc1), (kp2, dsc2) = descb, desca
+    avg_distance, points1, points2, matches = get_matches(kp1, dsc1, kp2, dsc2)
+    return avg_distance, matches
 
 def correct(base):
     gray = cv2.cvtColor(base, cv2.COLOR_BGR2GRAY)
@@ -521,74 +529,127 @@ for image_grp in IMAGE_GRP_FOLDERS:
         my_im = []
         for i in range(len(images)):
             my_im.append(images[order[i]])
-        # my_im = images
-        i = len(my_im)-1
-        j = 0
+        # i = len(my_im)-1
+        # j = 0
         final = None
         cum_transi = np.identity(pair_hom[(0, 1)][0].shape[0])
         cum_transj = np.identity(pair_hom[(0, 1)][0].shape[0])
+        dicti = {}
+        best_pair = (0,0)
+        max_num_matches = 0
+        min_distance = 10000
+        for i in range(len(my_im)-1):
+            if i != centre_ind and (i+1) != centre_ind:
+                dicti[(i, i+1)] = get_dist(my_im[i], my_im[i+1])
+                if dicti[(i, i+1)][0] < min_distance or (len(dicti[(i, i+1)][1]) > max_num_matches and dicti[(i, i+1)][1] == min_distance):
+                    best_pair = (i, i+1)
+                    max_num_matches = len(dicti[(i, i+1)][1])
+                    min_distance = dicti[(i, i+1)][0]
+        if best_pair[1] <= len(my_im)//2:
+            ind1 = best_pair[0]
+            ind2 = best_pair[1]
+        else:
+            ind1 = best_pair[1]
+            ind2 = best_pair[0]
+        print(best_pair)
+        print((ind1, ind2))
+        print(centre_ind)
         while True:
-            if i <= j:
+            if len(my_im) <= 1:
                 break
-            if i-j >= 3:
-                hom1 = get_hom(my_im[i-1], my_im[i])
-                hom2 = get_hom(my_im[j+1], my_im[j])
-                base1, trans1 = combine_images(my_im[i-1], my_im[i], hom1)
-                base2, trans2 = combine_images(my_im[j+1], my_im[j], hom2)
-                # cum_transi = trans1.dot(cum_transi)
-                # cum_transj = trans2.dot(cum_transj)
+            if len(my_im) > 3:
+                hom1 = get_hom(my_im[ind2], my_im[ind1])
+                base1, trans1 = combine_images(my_im[ind2], my_im[ind1], hom1)
                 base1 = correct(base1)
-                base2 = correct(base2)
                 
-                my_im.pop(len(my_im)-1)
-                my_im.pop(len(my_im)-1)
-                my_im.append(base1)
-                my_im.pop(0)
-                my_im.pop(0)
-                my_im.insert(0, base2)
-                i = len(my_im)-1
+                my_im.insert(min(ind1, ind2), base1)
+                my_im.pop(min(ind1, ind2)+1)
+                my_im.pop(min(ind1, ind2)+1)
+                if min(ind1, ind2) < centre_ind:
+                    centre_ind -= 1
+
+                if min(ind1, ind2) == len(my_im)-1:
+                    dicti[(min(ind1, ind2)-1, min(ind1, ind2))] = get_dist(my_im[min(ind1, ind2)], my_im[min(ind1, ind2)-1])
+                    max_num_matches = 0
+                    min_distance = 10000                    
+                    for i in range(len(my_im)-1):
+                        if i != centre_ind and (i+1) != centre_ind:
+                            if dicti[(i, i+1)][0] < min_distance or (len(dicti[(i, i+1)][1]) > max_num_matches and dicti[(i, i+1)][1] == min_distance):
+                                best_pair = (i, i+1)
+                                max_num_matches = len(dicti[(i, i+1)][1])
+                                min_distance = dicti[(i, i+1)][0]
+                elif min(ind1, ind2) == 0:
+                    dicti[(0, 1)] = get_dist(my_im[0], my_im[1])
+                    max_num_matches = 0
+                    min_distance = 10000                    
+                    for i in range(len(my_im)-1):
+                        if i != centre_ind and (i+1) != centre_ind:
+                            if dicti[(i, i+1)][0] < min_distance or (len(dicti[(i, i+1)][1]) > max_num_matches and dicti[(i, i+1)][1] == min_distance):
+                                best_pair = (i, i+1)
+                                max_num_matches = len(dicti[(i, i+1)][1])
+                                min_distance = dicti[(i, i+1)][0]
+                else:
+                    dicti[(min(ind1, ind2)-1, min(ind1, ind2))] = get_dist(my_im[min(ind1, ind2)], my_im[min(ind1, ind2)-1])
+                    dicti[(min(ind1, ind2), min(ind1, ind2)+1)] = get_dist(my_im[min(ind1, ind2)+1], my_im[min(ind1, ind2)])
+                    max_num_matches = 0
+                    min_distance = 10000                    
+                    for i in range(len(my_im)-1):
+                        if i != centre_ind and (i+1) != centre_ind:
+                            if dicti[(i, i+1)][0] < min_distance or (len(dicti[(i, i+1)][1]) > max_num_matches and dicti[(i, i+1)][1] == min_distance):
+                                best_pair = (i, i+1)
+                                max_num_matches = len(dicti[(i, i+1)][1])
+                                min_distance = dicti[(i, i+1)][0]
+
+                if best_pair[1] <= len(my_im)//2:
+                    ind1 = best_pair[0]
+                    ind2 = best_pair[1]
+                else:
+                    ind1 = best_pair[1]
+                    ind2 = best_pair[0]
+
+                print(best_pair)
+                print((ind1, ind2))
+                print(centre_ind)
+                print(len(my_im))
                 plt.imshow(base1)
                 plt.show()
-                plt.imshow(base2)
-                plt.show()
-            elif i-j == 2:
-                hom1 = get_hom(my_im[i-1], my_im[i])
-                base1, trans1 = combine_images(my_im[i-1], my_im[i], hom1)
+            elif len(my_im) == 3:
+                hom1 = get_hom(my_im[1], my_im[2])
+                base1, trans1 = combine_images(my_im[1], my_im[2], hom1)
                 base1 = correct(base1)
                 plt.imshow(base1)
                 plt.show()
-                # print(hom2)
-                hom2 = get_hom(base1, my_im[j])
+                hom2 = get_hom(base1, my_im[0])
                 if hom2 is not None:
-                    base2, trans2 = combine_images(base1, my_im[j], hom2)
+                    base2, trans2 = combine_images(base1, my_im[0], hom2)
                 else:
                     base2 = base1
                 base2 = correct(base2)
                 final = base2
                 plt.imshow(base2)
                 plt.show()
-                i = j
+                my_im.pop()
+                my_im.pop()
+                my_im.pop()
+                my_im.insert(0, final)
                 cv2.imwrite(ARGS["output"]+'/'+image_grp+'.jpg', final)
-            elif i-j == 1:
-                print((len(my_im), i))
-                plt.imshow(my_im[i])
-                plt.show()
-                plt.imshow(my_im[i-1])
-                plt.show()
-                hom1 = get_hom(my_im[i], my_im[i-1])
-                base1, trans1 = combine_images(my_im[i], my_im[i-1], hom1)
+            elif len(my_im) == 2:
+                hom1 = get_hom(my_im[1], my_im[0])
+                base1, trans1 = combine_images(my_im[1], my_im[0], hom1)
                 base1 = correct(base1)
                 final = base1
-                i = j
                 plt.imshow(base1)
                 plt.show()
                 cv2.imwrite(ARGS["output"]+'/'+image_grp+'_1.jpg', final)
 
-                hom1 = get_hom(my_im[i-1], my_im[i])
-                base1, trans1 = combine_images(my_im[i-1], my_im[i], np.dot(cum_transi, hom1))
+                hom1 = get_hom(my_im[0], my_im[1])
+                base1, trans1 = combine_images(my_im[0], my_im[1], hom1)
                 base1 = correct(base1)
                 final = base1
-                i = j
+                my_im.pop()
+                my_im.pop()
+                my_im.insert(0, final)
+
                 plt.imshow(base1)
                 plt.show()
                 cv2.imwrite(ARGS["output"]+'/'+image_grp+'_0.jpg', final)
