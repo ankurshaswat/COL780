@@ -14,7 +14,7 @@ import imutils
 import matplotlib.pyplot as plt
 import numpy as np
 
-print('Is CV3 Or Better = ', imutils.is_cv3(or_better=True))
+# print('Is CV3 Or Better = ', imutils.is_cv3(or_better=True))
 
 FEATURE_EXTRACTOR = 'brisk'  # 'sift'|'surf'|'brisk'|'orb'
 FEATURE_MATCHER = 'bf'  # 'bf'|'knn'
@@ -127,12 +127,12 @@ def get_matches(kp1_loc, dsc1_loc, kp2_loc, dsc2_loc):
         raw_matches.sort(key=lambda x: x.distance)
         # num_good_matches = int(len(raw_matches) * GOOD_MATCH_PERCENT)
         matches_loc = raw_matches[:NUM_GOOD_MATCHES]
-        print("Brute Force #matches = ", len(raw_matches),
-              " and avd_dist: ", average(matches_loc))
+        # print("Brute Force #matches = ", len(raw_matches),
+        #       " and avd_dist: ", average(matches_loc))
 
     else:
         raw_matches = MATCHER.knnMatch(dsc1_loc, dsc2_loc, 2)
-        print("KNN #matches = ", len(raw_matches))
+        # print("KNN #matches = ", len(raw_matches))
         matches_loc = []
         for m_val, n_val in raw_matches:
             if m_val.distance < n_val.distance * LOWES_RATIO:
@@ -223,7 +223,7 @@ def correct_hom(img2_loc, h_val):
     [xmin, ymin] = np.int32(pts.min(axis=0).ravel() - 0.5)
     [xmax, ymax] = np.int32(pts.max(axis=0).ravel() + 0.5)
     # if xmin <= 0 or ymin <= 0:
-    print("Left correction homography")
+    # print("Left correction homography")
     t_val = [-xmin, -ymin]
     h_translation = np.array(
         [[1, 0, t_val[0]], [0, 1, t_val[1]], [0, 0, 1]])  # translate
@@ -257,7 +257,7 @@ def get_relative_position(img_1, points_1, img_2, points_2):
     height2, width2 = img_2.shape[:2]
     avg2 = np.mean(points_2, axis=0)
 
-    print(avg1, avg2)
+    # print(avg1, avg2)
 
     confidence = []
 
@@ -275,7 +275,7 @@ def get_relative_position(img_1, points_1, img_2, points_2):
 
     max_ind = np.argmax(confidence)
 
-    print(confidence)
+    # print(confidence)
 
     if max_ind == 0:
         return 'left', 'right', confidence[max_ind]
@@ -322,12 +322,16 @@ def correct(base):
 
 MATCHER = create_matcher()
 
+if not os.path.exists('results'):
+    os.makedirs('results')
+
 final_image_name = FOLDER.split('/')[-1]
 if(final_image_name == ''):
     final_image_name = FOLDER.split('/')[-2]
-os.makedirs(final_image_name+'_results')
+final_image_name = 'results/'+final_image_name
+
 images = load_images(FOLDER)
-print("[INFO] Number of components = ", len(images))
+# print("[INFO] Number of components = ", len(images))
 if SCALING != 100:
     images = [cv2.resize(x, (((x.shape[1])*SCALING)//100,
                              (x.shape[0]*SCALING)//100)) for x in images]
@@ -341,7 +345,7 @@ for (ind1, ind2) in itertools.combinations(range(len(images)), 2):
     if ind1 >= ind2:
         continue
 
-    print("Ongoing: ", (ind1, ind2))
+    # print("Ongoing: ", (ind1, ind2))
     img1, img1_grayscale, img1_described = images[ind1], grayscale_imgs[ind1], described_imgs[ind1]
     img2, img2_grayscale, img2_described = images[ind2], grayscale_imgs[ind2], described_imgs[ind2]
 
@@ -426,14 +430,14 @@ for ind in range(1, len(selected)):
         order.append(selected[ind][0])
     else:
         order.insert(order.index(selected[ind][1]), selected[ind][0])
-        print("Whoops!!! This shouldn't happen this way bro!!!!!")
-        print("selected: ", selected)
-        print("Trouble makers: ", selected[ind])
+        # print("Whoops!!! This shouldn't happen this way bro!!!!!")
+        # print("selected: ", selected)
+        # print("Trouble makers: ", selected[ind])
         # exit(0)
     left_e = order[0]
     right_e = order[len(order)-1]
 
-    print("Order of images: ", order)
+    # print("Order of images: ", order)
 
 # centre_ind -= 1
 # if len(images)%2 == 0:
@@ -443,7 +447,7 @@ for ind in range(1, len(selected)):
 #         centre_ind -= 1
 
 if len(images) <= 3:
-    print("Final Centre ID and order: ", centre_ind, " ", order)
+    # print("Final Centre ID and order: ", centre_ind, " ", order)
     fin_order = []
     for i in range(len(images)):
         if centre_ind+i < len(order):
@@ -453,7 +457,7 @@ if len(images) <= 3:
 
         if (centre_ind+i >= len(order)) and (centre_ind-i < 0):
             break
-    print(fin_order)
+    # print(fin_order)
 
     fin_hom[centre_ind] = np.identity(pair_hom[(0, 1)][0].shape[0])
 
@@ -567,7 +571,7 @@ else:
             i = j
             cv2.imwrite(final_image_name+'.jpg', final)
         elif i-j == 1:
-            print((len(my_im), i))
+            # print((len(my_im), i))
             # plt.imshow(my_im[i])
             # plt.show()
             # plt.imshow(my_im[i-1])
