@@ -197,6 +197,13 @@ def combine_images(img1_loc, img2_loc, h_val):
     indices1 = np.argwhere((img1 != 0))
     indices = indices1 + [t_val[1], t_val[0]]
     result[tuple(zip(*indices))] = img1_loc[tuple(zip(*indices1))]
+    # srcTri = np.array( [[0, 0], [0, height2], [width2, 0]] ).astype(np.float32)
+    # dstTri = np.array( [[0, 0], [0, height1], [width1, 0]] ).astype(np.float32)
+    # warp_mat = cv2.getAffineTransform(srcTri, dstTri)
+    # warp_dst = cv2.warpAffine(img2_loc, warp_mat, (xmax-xmin, ymax-ymin))
+    # warp_dst[t_val[1]:height1+t_val[1], t_val[0]:width1+t_val[0]] = img1_loc
+    # plt.imshow(warp_dst)
+    # plt.show()
 
     # for x_val in range(0, height1):
     #     for y_val in range(0, width1):
