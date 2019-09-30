@@ -211,7 +211,7 @@ def combine_images(img1_loc, img2_loc, h_val):
     plt.imshow(result)
     plt.show()
     img1_loc = np.array(img1_loc)
-    img1 = np.sum(img1_loc, axis = 2)
+    img1 = np.sum(img1_loc, axis=2)
     indices1 = np.argwhere((img1 != 0))
     indices = indices1 + [t_val[1], t_val[0]]
     result[tuple(zip(*indices))] = img1_loc[tuple(zip(*indices1))]
@@ -306,6 +306,7 @@ def get_relative_position(img_1, points_1, img_2, points_2):
 
     return 'down', 'up', confidence[max_ind]
 
+
 def get_hom(a, b):
     ima = convert_to_grayscale(a)
     imb = convert_to_grayscale(b)
@@ -314,13 +315,15 @@ def get_hom(a, b):
     (kp1, dsc1), (kp2, dsc2) = descb, desca
     avg_distance, points1, points2, matches = get_matches(kp1, dsc1, kp2, dsc2)
     h, mask = cv2.findHomography(points1, points2, cv2.RANSAC)
-    display_image_with_matches(ima,kp2,imb,kp1,matches)
+    display_image_with_matches(imb, kp1, ima, kp2, matches)
     return h
+
 
 def correct(base):
     gray = cv2.cvtColor(base, cv2.COLOR_BGR2GRAY)
     thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY)[1]
-    cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = cv2.findContours(
+        thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cnts = imutils.grab_contours(cnts)
     c = max(cnts, key=cv2.contourArea)
     (x, y, w, h) = cv2.boundingRect(c)
@@ -360,7 +363,8 @@ for image_grp in IMAGE_GRP_FOLDERS:
         img2, img2_grayscale, img2_described = images[ind2], grayscale_imgs[ind2], described_imgs[ind2]
 
         (kp1, dsc1), (kp2, dsc2) = img1_described, img2_described
-        avg_distance, points1, points2, matches = get_matches(kp1, dsc1, kp2, dsc2)
+        avg_distance, points1, points2, matches = get_matches(
+            kp1, dsc1, kp2, dsc2)
         h, mask = cv2.findHomography(points1, points2, cv2.RANSAC)
         pair_hom[(ind1, ind2)] = (h, avg_distance, matches)
         # loc1, loc2, conf = get_relative_position(img1, points1, img2, points2)
@@ -438,6 +442,7 @@ for image_grp in IMAGE_GRP_FOLDERS:
                 rot_l = 1
             order.append(selected[ind][0])
         else:
+            order.insert(order.index(selected[ind][1]), selected[ind][0])
             print("Whoops!!! This shouldn't happen this way bro!!!!!")
             print("selected: ", selected)
             print("Trouble makers: ", selected[ind])
@@ -462,40 +467,48 @@ for image_grp in IMAGE_GRP_FOLDERS:
                 fin_order.append(order[centre_ind+i])
             if i != 0 and centre_ind-i >= 0:
                 fin_order.append(order[centre_ind-i])
-            
+
             if (centre_ind+i >= len(order)) and (centre_ind-i < 0):
                 break
         print(fin_order)
 
         fin_hom[centre_ind] = np.identity(pair_hom[(0, 1)][0].shape[0])
 
-        for i in range(1,len(fin_order)):
-            if i<3:
+        for i in range(1, len(fin_order)):
+            if i < 3:
                 if (fin_order[i], fin_order[0]) in pair_hom:
-                    fin_hom[fin_order[i]] = (pair_hom[(fin_order[i], fin_order[0])][0])
+                    fin_hom[fin_order[i]] = (
+                        pair_hom[(fin_order[i], fin_order[0])][0])
                 else:
-                    fin_hom[fin_order[i]] = np.linalg.inv(pair_hom[(fin_order[0], fin_order[i])][0])
+                    fin_hom[fin_order[i]] = np.linalg.inv(
+                        pair_hom[(fin_order[0], fin_order[i])][0])
             else:
-                if len(fin_order) > i+1 and i%2 == 1:
+                if len(fin_order) > i+1 and i % 2 == 1:
                     if (fin_order[i], fin_order[i-2]) in pair_hom:
-                        fin_hom[fin_order[i]] = np.dot(fin_hom[fin_order[i-2]], pair_hom[(fin_order[i], fin_order[i-2])][0])
+                        fin_hom[fin_order[i]] = np.dot(
+                            fin_hom[fin_order[i-2]], pair_hom[(fin_order[i], fin_order[i-2])][0])
                         # fin_hom[fin_order[i]] = np.dot(pair_hom[(fin_order[i], fin_order[i-2])][0], fin_hom[fin_order[i-2]])
                     else:
-                        fin_hom[fin_order[i]] = np.dot(fin_hom[fin_order[i-2]], np.linalg.inv(pair_hom[(fin_order[i-2], fin_order[i])][0]))
+                        fin_hom[fin_order[i]] = np.dot(
+                            fin_hom[fin_order[i-2]], np.linalg.inv(pair_hom[(fin_order[i-2], fin_order[i])][0]))
                         # fin_hom[fin_order[i]] = np.dot(np.linalg.inv(pair_hom[(fin_order[i-2], fin_order[i])][0]), fin_hom[fin_order[i-2]])
-                elif i%2 == 1:
+                elif i % 2 == 1:
                     if (fin_order[i], fin_order[i-1]) in pair_hom:
-                        fin_hom[fin_order[i]] = np.dot(fin_hom[fin_order[i-1]], pair_hom[(fin_order[i], fin_order[i-1])][0])
+                        fin_hom[fin_order[i]] = np.dot(
+                            fin_hom[fin_order[i-1]], pair_hom[(fin_order[i], fin_order[i-1])][0])
                         # fin_hom[fin_order[i]] = np.dot(pair_hom[(fin_order[i], fin_order[i-1])][0], fin_hom[fin_order[i-1]])
                     else:
-                        fin_hom[fin_order[i]] = np.dot(fin_hom[fin_order[i-1]], np.linalg.inv(pair_hom[(fin_order[i-1], fin_order[i])][0]))                        
-                        # fin_hom[fin_order[i]] = np.dot(np.linalg.inv(pair_hom[(fin_order[i-1], fin_order[i])][0]), fin_hom[fin_order[i-1]])                        
+                        fin_hom[fin_order[i]] = np.dot(
+                            fin_hom[fin_order[i-1]], np.linalg.inv(pair_hom[(fin_order[i-1], fin_order[i])][0]))
+                        # fin_hom[fin_order[i]] = np.dot(np.linalg.inv(pair_hom[(fin_order[i-1], fin_order[i])][0]), fin_hom[fin_order[i-1]])
                 else:
                     if (fin_order[i], fin_order[i-2]) in pair_hom:
-                        fin_hom[fin_order[i]] = np.dot(fin_hom[fin_order[i-2]], pair_hom[(fin_order[i], fin_order[i-2])][0])
+                        fin_hom[fin_order[i]] = np.dot(
+                            fin_hom[fin_order[i-2]], pair_hom[(fin_order[i], fin_order[i-2])][0])
                         # fin_hom[fin_order[i]] = np.dot(pair_hom[(fin_order[i], fin_order[i-2])][0], fin_hom[fin_order[i-2]])
                     else:
-                        fin_hom[fin_order[i]] = np.dot(fin_hom[fin_order[i-2]], np.linalg.inv(pair_hom[(fin_order[i-2], fin_order[i])][0]))
+                        fin_hom[fin_order[i]] = np.dot(
+                            fin_hom[fin_order[i-2]], np.linalg.inv(pair_hom[(fin_order[i-2], fin_order[i])][0]))
                         # fin_hom[fin_order[i]] = np.dot(np.linalg.inv(pair_hom[(fin_order[i-2], fin_order[i])][0]), fin_hom[fin_order[i-2]])
 
         height, width, channels = images[fin_order[0]].shape
@@ -505,7 +518,8 @@ for image_grp in IMAGE_GRP_FOLDERS:
         cum_trans = np.identity(pair_hom[(0, 1)][0].shape[0])
 
         for i in fin_order[1:]:
-            base, trans = combine_images(base, images[i], np.dot(cum_trans, fin_hom[i]))
+            base, trans = combine_images(
+                base, images[i], np.dot(cum_trans, fin_hom[i]))
             cum_trans = trans.dot(cum_trans)
             plt.imshow(base)
             plt.show()
@@ -539,7 +553,7 @@ for image_grp in IMAGE_GRP_FOLDERS:
                 # cum_transj = trans2.dot(cum_transj)
                 base1 = correct(base1)
                 base2 = correct(base2)
-                
+
                 my_im.pop(len(my_im)-1)
                 my_im.pop(len(my_im)-1)
                 my_im.append(base1)
@@ -579,13 +593,14 @@ for image_grp in IMAGE_GRP_FOLDERS:
                 base1, trans1 = combine_images(my_im[i], my_im[i-1], hom1)
                 base1 = correct(base1)
                 final = base1
-                i = j
+                # i = j
                 plt.imshow(base1)
                 plt.show()
                 cv2.imwrite(ARGS["output"]+'/'+image_grp+'_1.jpg', final)
 
                 hom1 = get_hom(my_im[i-1], my_im[i])
-                base1, trans1 = combine_images(my_im[i-1], my_im[i], np.dot(cum_transi, hom1))
+                base1, trans1 = combine_images(
+                    my_im[i-1], my_im[i], np.dot(cum_transi, hom1))
                 base1 = correct(base1)
                 final = base1
                 i = j

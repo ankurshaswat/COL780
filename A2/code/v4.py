@@ -21,6 +21,9 @@ NUM_GOOD_MATCHES = 200
 LOWES_RATIO = 0.75
 SCALING = 100  # Percent scale down
 
+mng = plt.get_current_fig_manager()
+mng.resize(*mng.window.maxsize())
+
 
 def get_args():
     """
@@ -199,23 +202,93 @@ def combine_images(img1_loc, img2_loc, h_val):
                     np.float32).reshape(-1, 1, 2)
     pts2_ = cv2.perspectiveTransform(pts2, h_val)
     pts = np.concatenate((pts1, pts2_), axis=0)
-    [xmin, ymin] = np.int32(pts.min(axis=0).ravel() - 0.5)
-    [xmax, ymax] = np.int32(pts.max(axis=0).ravel() + 0.5)
+    [xmin, ymin] = np.int32(pts.min(axis=0).ravel())
+    [xmax, ymax] = np.int32(pts.max(axis=0).ravel())
     t_val = [-xmin, -ymin]
     h_translation = np.array(
         [[1, 0, t_val[0]], [0, 1, t_val[1]], [0, 0, 1]])  # translate
 
-    result = cv2.warpPerspective(
+    warped_image = cv2.warpPerspective(
         img2_loc, h_translation.dot(h_val), (xmax-xmin, ymax-ymin))
 
-    plt.imshow(result)
-    plt.show()
-    img1_loc = np.array(img1_loc)
-    img1 = np.sum(img1_loc, axis = 2)
-    indices1 = np.argwhere((img1 != 0))
-    indices = indices1 + [t_val[1], t_val[0]]
-    result[tuple(zip(*indices))] = img1_loc[tuple(zip(*indices1))]
+    # plt.imshow(warped_image)
+    # plt.show()
 
+
+    # result1[:, :] = warped_image
+    # img1_loc = np.array(img1_loc)
+    # img1 = np.sum(img1_loc, axis=2)
+    # indices1 = np.argwhere((img1 != 0))
+    # indices = indices1 + [t_val[1], t_val[0]]
+    # result1[tuple(zip(*indices))] = img1_loc[tuple(zip(*indices1))]
+
+    # plt.imshow(result1)
+    # plt.show()
+
+    # result2[t_val[1]:t_val[1]+height1, t_val[0]:t_val[0]+width1] = img1_loc
+    # warped_image_arr = np.array(warped_image)
+    # warped_img_sum = np.sum(warped_image_arr, axis=2)
+    # indices1 = np.argwhere((warped_img_sum != 0))
+    # result2[tuple(zip(*indices1))] = warped_image[tuple(zip(*indices1))]
+
+    # plt.imshow(result2)
+    # plt.show()
+
+    result1 = np.zeros((ymax-ymin, xmax-xmin, 3), np.uint8)
+    result1[:, :] = warped_image
+    img1_arr = np.array(result1)
+    img1 = np.sum(img1_arr, axis=2)
+    # print(img1)
+    mask1 = 255*(img1 > 0)
+    # print(mask1)
+    # plt.imshow(mask1)
+    # plt.show()
+
+    result2 = np.zeros((ymax-ymin, xmax-xmin, 3), np.uint8)
+    result2[t_val[1]:t_val[1]+height1, t_val[0]:t_val[0]+width1] = img1_loc
+    img2_loc = np.array(result2)
+    img2 = np.sum(img2_loc, axis=2)
+    mask2 = 255*(img2 > 0)
+    # plt.imshow(mask2)
+    # plt.show()
+
+    blender = cv2.detail_MultiBandBlender()
+    blender.prepare((0,0,mask1.shape[0],mask1.shape[1]))
+
+    img2 = np.int16(img2)
+    img1 = np.int16(img1)
+    mask2 = np.int16(mask2)
+    mask1 = np.int16(mask1)
+
+    plt.imshow(img2)
+    plt.show()
+    plt.imshow(mask2)
+    plt.show()
+
+    blender.feed(img2,mask2,(0,0))
+    blender.feed(img1,mask1,(0,0))
+    result_img,result_mask = blender.blend()
+
+    plt.imshow(result_img)
+    plt.show()
+    # blank_image = np.zeros((ymax-ymin, xmax-xmin, 3), np.uint8)
+    # mask = np.zeros((ymax-ymin, xmax-xmin, 3), np.uint8)
+    # mask[t_val[1]:t_val[1]+height1, t_val[0]:t_val[0]+width1] = 255
+    # center = (t_val[1]+height1//2, t_val[0]+width1//2)
+    # blank_image[t_val[1]:t_val[1]+height1, t_val[0]:t_val[0]+width1] = img1_loc
+
+    # mixed_clone = cv2.seamlessClone(
+    #     blank_image, result, mask, center, cv2.MIXED_CLONE)
+
+    # plt.imshow(blank_image)
+    # plt.show()
+
+    alpha = 0.5
+    dst = cv2.addWeighted(result1, alpha, result2, 1-alpha, 0.0)
+
+    plt.imshow(dst)
+    plt.show()
+    result = dst
     # for x_val in range(0, height1):
     #     for y_val in range(0, width1):
     #         if not (img1_loc[x_val, y_val] == [0, 0, 0]).all():
@@ -349,7 +422,7 @@ for image_grp in IMAGE_GRP_FOLDERS:
         pair_hom[(ind1, ind2)] = (h, avg_distance, matches)
         # loc1, loc2, conf = get_relative_position(img1, points1, img2, points2)
         # print(loc1, loc2, conf)
-        # display_image_with_matches(img1, kp1, img2, kp2, matches)
+        display_image_with_matches(img1, kp1, img2, kp2, matches)
 
     fin_hom[0] = np.identity(pair_hom[(0, 1)][0].shape[0])
 
@@ -471,7 +544,8 @@ for image_grp in IMAGE_GRP_FOLDERS:
     cum_trans = np.identity(pair_hom[(0, 1)][0].shape[0])
 
     for i in fin_order[1:]:
-        base, trans = combine_images(base, images[i], np.dot(cum_trans, fin_hom[i]))
+        base, trans = combine_images(
+            base, images[i], np.dot(cum_trans, fin_hom[i]))
         cum_trans = trans.dot(cum_trans)
         plt.imshow(base)
         plt.show()
