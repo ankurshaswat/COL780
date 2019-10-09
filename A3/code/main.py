@@ -190,6 +190,7 @@ while True:
     if not ret:
         print("Unable to capture video")
         exit(0) 
+
     homography, matches = get_hom(ref_described, frame)
     if RECTANGLE:
         h, w = ref_grayscale.shape
