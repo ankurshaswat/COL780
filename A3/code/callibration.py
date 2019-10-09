@@ -10,9 +10,9 @@ obj_path = sys.argv[1]
 
 obj = OBJ(obj_path, swapyz=True)
 ref_image = np.array([[0, 0],
-                        [1, 0],
-                        [0, 1],
-                        [1, 1]])
+                        [1000, 0],
+                        [0, 1000],
+                        [1000, 1000]],dtype=np.float32)
 
 def get_homography_from_corners(corners):
     global ref_image
@@ -118,11 +118,10 @@ while True:
         for ind, id_list in enumerate(ids):
             id_ = id_list[0]
             homography, status = get_homography_from_corners(corners[ind])
-            # if homography is not None:
-            #     projection_matrix = get_matrix(camera_matrix, homography)
-            #     frame = render(frame, obj, projection_matrix, ref_image, False)
-
-            # homography_dict[id_] = h
+            if homography is not None:
+                # projection_matrix = get_matrix(camera_matrix, homography)
+                # frame = render(frame, obj, projection_matrix, ref_image, False)
+                homography_dict[id_] = homography
             # rvec, tvec, _ = aruco.estimatePoseSingleMarkers(corners, markerLength,
                                                             # camera_matrix,
                                                             # dist_coeffs)
@@ -130,10 +129,19 @@ while True:
             # print(tvec)
             # camera_pose[id_] = get_camera_pose(h)
             # camera_pose[id_] = (rvec, tvec)
+    print(homography_dict.keys())
+    if 1 in homography_dict:
+        pts = ref_image
+        dst = cv2.perspectiveTransform(np.array([pts]),homography_dict[1])
+        frame_markers = cv2.polylines(frame,[np.int32(dst)],True,255,3, cv2.LINE_AA)
+        projection_matrix = get_matrix(camera_matrix, homography)
+        frame_markers = render(frame_markers, obj, projection_matrix, ref_image, False)
+        cv2.imshow("frame", frame_markers)
+    else:
+        cv2.imshow("frame", frame)
 
-    frame_markers = aruco.drawDetectedMarkers(frame.copy(), corners, ids)
+    # frame_markers = aruco.drawDetectedMarkers(frame.copy(), corners, ids)
 
-    cv2.imshow("frame", frame_markers)
 
     if cv2.waitKey(1) & 0xFF == ord("q"):
         break
