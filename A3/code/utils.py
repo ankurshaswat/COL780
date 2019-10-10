@@ -14,7 +14,7 @@ NUM_GOOD_MATCHES = 200
 LOWES_RATIO = 0.75
 SCALING = 20  # Percent scale down
 # MARKERS_PATHS = ['../markers/0.png', '../markers/1.png', '../markers/2.png']
-MARKERS_PATHS = ['../markers/0.png', '../markers/1.png']
+MARKERS_PATHS = ['../markers/0.png', '../markers/2.png']
 
 
 def create_matcher():
@@ -262,7 +262,7 @@ def get_camera_params():
     return np.array([[800, 0, 320], [0, 800, 240], [0, 0, 1]])
 
 
-def load_ref_images():
+def load_ref_images(num_img=2):
     """
     Load visual markers reference images
     """
@@ -271,6 +271,8 @@ def load_ref_images():
 
     for marker_path in MARKERS_PATHS:
         ref_imgs.append(load_image(marker_path, False))
+
+    ref_imgs = ref_imgs[:num_img]
 
     ref_descriptors = []
 
@@ -293,7 +295,7 @@ def find_homographies(reference_descriptors, frame):
     return match_data
 
 
-def draw_rectangle(homography, ref_img, frame):
+def draw_rectangle(homography, ref_img, frame, color=255):
     """
     Draw rectangles around each found visual marker
     """
@@ -302,7 +304,7 @@ def draw_rectangle(homography, ref_img, frame):
                     [width - 1, 0]], dtype='float32').reshape((-1, 1, 2))
     dst = cv2.perspectiveTransform(pts, homography)
     frame = cv2.polylines(
-        frame, [np.int32(dst)], True, 255, 3, cv2.LINE_AA)
+        frame, [np.int32(dst)], True, color, 3, cv2.LINE_AA)
     return frame
 
 
@@ -320,7 +322,5 @@ def calculate_dist(kp1, matches1, kp2, matches2):
     for i, match in enumerate(matches2[:minimum]):
         points2[i, :] = kp2[match.trainIdx].pt
 
-    # print("mats: ", points2-points1)
-    a = np.average(points2-points1, axis=0)
-    # print("average: ", a)
-    return a
+    dist = np.average(points2-points1, axis=0)
+    return dist

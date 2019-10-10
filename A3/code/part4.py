@@ -50,6 +50,7 @@ if __name__ == "__main__":
             KP2 = MATCH_DATA[1][3]
 
             FRAME = draw_rectangle(HOMOGRAPHY1, REF_IMAGES[0], FRAME)
+            FRAME = draw_rectangle(HOMOGRAPHY2, REF_IMAGES[1], FRAME, 120)
 
             PROJ_MAT1 = get_matrix(CAM_MAT, HOMOGRAPHY1)
 
