@@ -10,13 +10,15 @@ obj_path = sys.argv[1]
 
 obj = OBJ(obj_path, swapyz=True)
 ref_image = np.array([[0, 0],
-                        [1000, 0],
-                        [0, 1000],
-                        [1000, 1000]],dtype=np.float32)
+                      [1000, 0],
+                      [0, 1000],
+                      [1000, 1000]], dtype=np.float32)
 
-def get_homography_from_corners(corners):
-    global ref_image
-    # print("internal: ", corners)
+
+def get_homography_from_corners(corners, ref_image):
+    """
+    Get homography using corners of reference image
+    """
     pts_dst = np.array([[corners[0][0][0], corners[0][0][1]],
                         [corners[0][1][0], corners[0][1][1]],
                         [corners[0][2][0], corners[0][2][1]],
@@ -26,9 +28,10 @@ def get_homography_from_corners(corners):
     h, status = cv2.findHomography(pts_src, pts_dst)
     return h, status
 
-# Get extrinsic parameter matrix of the camera and return new homography 
+
+# Get extrinsic parameter matrix of the camera and return new homography
 def get_matrix(cp, h, translate=None):
-    Rt = np.dot(np.linalg.inv(cp),h)
+    Rt = np.dot(np.linalg.inv(cp), h)
     r1 = Rt[:, 0]
     r2 = Rt[:, 1]
     t = Rt[:, 2]
@@ -38,9 +41,9 @@ def get_matrix(cp, h, translate=None):
     t = t/norm
     c = r1+r2
     p = np.cross(r1, r2)
-    d = np.cross(c,p)
-    r1_ = (1/math.sqrt(2))*(c/np.linalg.norm(c,2) + d/np.linalg.norm(d,2))
-    r2_ = (1/math.sqrt(2))*(c/np.linalg.norm(c,2) - d/np.linalg.norm(d,2))
+    d = np.cross(c, p)
+    r1_ = (1/math.sqrt(2))*(c/np.linalg.norm(c, 2) + d/np.linalg.norm(d, 2))
+    r2_ = (1/math.sqrt(2))*(c/np.linalg.norm(c, 2) - d/np.linalg.norm(d, 2))
     r3_ = np.cross(r1_, r2_)
     proj = np.stack((r1_, r2_, r3_, t)).T
     if translate is None:
@@ -49,6 +52,8 @@ def get_matrix(cp, h, translate=None):
         return np.dot(cp, np.dot(translate, proj))
 
 # Project 3D model onto pixel coordinate
+
+
 def render(img, obj, projection, model, color=False):
     vertices = obj.vertices
     scale_matrix = np.eye(3) * 3
@@ -128,8 +133,8 @@ while True:
                 # frame = render(frame, obj, projection_matrix, ref_image, False)
                 homography_dict[id_] = (homography, corners[ind])
             # rvec, tvec, _ = aruco.estimatePoseSingleMarkers(corners, markerLength,
-                                                            # camera_matrix,
-                                                            # dist_coeffs)
+                # camera_matrix,
+                # dist_coeffs)
             # print(rvec)
             # print(tvec)
             # camera_pose[id_] = get_camera_pose(h)
@@ -137,16 +142,19 @@ while True:
     print(homography_dict.keys())
     if 1 in homography_dict and 4 in homography_dict:
         pts = ref_image
-        dst = cv2.perspectiveTransform(np.array([pts]),homography_dict[1][0])
-        frame_markers = cv2.polylines(frame,[np.int32(dst)],True,255,3, cv2.LINE_AA)
+        dst = cv2.perspectiveTransform(np.array([pts]), homography_dict[1][0])
+        frame_markers = cv2.polylines(
+            frame, [np.int32(dst)], True, 255, 3, cv2.LINE_AA)
         projection_matrix = get_matrix(camera_matrix, homography_dict[1][0])
         if 4 in homography_dict:
             # dst2 = cv2.perspectiveTransform(np.array([pts]),homography_dict[2][0])
             # frame_markers = cv2.polylines(frame_markers,[np.int32(dst)],True,255,3, cv2.LINE_AA)
-            dist = np.average(homography_dict[4][1]-homography_dict[1][1], axis = 1)[0]
+            dist = np.average(
+                homography_dict[4][1]-homography_dict[1][1], axis=1)[0]
             distx = dist[0]
             disty = dist[1]
-            print("dst: ", dist, " ", (reachx, reachy), " ", homography_dict[1][1].shape)
+            print("dst: ", dist, " ", (reachx, reachy),
+                  " ", homography_dict[1][1].shape)
             stepx = distx/100
             stepy = disty/100
             print("step: ", (stepx, stepy))
@@ -158,18 +166,18 @@ while True:
                 reachy += stepy
                 # print("projection_matrix: ", projection_matrix)
                 # projection_matrix = np.dot(translate, projection_matrix)
-            translate = np.array([[1,0,reachx],[0,1,reachy],[0,0,1]])
+            translate = np.array([[1, 0, reachx], [0, 1, reachy], [0, 0, 1]])
             projection_matrix = np.dot(translate, projection_matrix)
             # projection_matrix = get_matrix(camera_matrix, homography_dict[1][0], translate)
         # else:
             # projection_matrix = get_matrix(camera_matrix, homography_dict[1][0])
-        frame_markers = render(frame_markers, obj, projection_matrix, ref_image, False)
+        frame_markers = render(
+            frame_markers, obj, projection_matrix, ref_image, False)
         cv2.imshow("frame", frame_markers)
     else:
         cv2.imshow("frame", frame)
 
     # frame_markers = aruco.drawDetectedMarkers(frame.copy(), corners, ids)
-
 
     if cv2.waitKey(1) & 0xFF == ord("q"):
         break
