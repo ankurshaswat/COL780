@@ -9,7 +9,7 @@ import numpy as np
 
 import obj_loader
 from utils import (draw_rectangle, find_homographies, get_matrix,
-                   load_ref_images, calculate_dist, render, display_image_with_matched_keypoints)
+                   load_ref_images, calculate_dist_matches, calculate_dist_corners, render, display_image_with_matched_keypoints)
 
 if __name__ == "__main__":
     OBJ_PATH = sys.argv[1]
@@ -49,20 +49,16 @@ if __name__ == "__main__":
             KP1 = MATCH_DATA[0][3]
             KP2 = MATCH_DATA[1][3]
 
-            FRAME = draw_rectangle(HOMOGRAPHY1, REF_IMAGES[0], FRAME)
-            FRAME = draw_rectangle(HOMOGRAPHY2, REF_IMAGES[1], FRAME, 120)
+            FRAME, corner1 = draw_rectangle(HOMOGRAPHY1, REF_IMAGES[0], FRAME)
+            FRAME, corner2 = draw_rectangle(HOMOGRAPHY2, REF_IMAGES[1], FRAME, 120)
 
             PROJ_MAT1 = get_matrix(CAM_MAT, HOMOGRAPHY1)
 
-            DIST = calculate_dist(KP1, MATCHES1, KP2, MATCHES2)
+            # DIST = calculate_dist_matches(KP1, MATCHES1, KP2, MATCHES2)
+            DIST = calculate_dist_corners(corner1, corner2)
 
-            # points2 = np.zeros((len(MATCHES2), 2), dtype=np.float32)
-            # for i, match in enumerate(MATCHES2):
-            #     points2[i, :] = KP2[match.trainIdx].pt
             kp2 = [KP1[match.trainIdx] for match in MATCHES1]
             FRAME = display_image_with_matched_keypoints(FRAME, kp2)
-            # print("DIST: ", DIST)
-            # dist = np.average(homography_dict[4][1]-homography_dict[1][1], axis=1)[0]
             DIST_X = DIST[0]
             DIST_Y = DIST[1]
 

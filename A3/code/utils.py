@@ -245,6 +245,7 @@ def render(img, obj, projection, model, color=False):
             [[p[0] + width / 2, p[1] + height / 2, p[2]] for p in points])
         dst = cv2.perspectiveTransform(points.reshape((-1, 1, 3)), projection)
         imgpts = np.int32(dst)
+        # print("imgpts: ", imgpts)
         if color is False:
             cv2.fillConvexPoly(img, imgpts, (137, 27, 211))
         else:
@@ -305,10 +306,10 @@ def draw_rectangle(homography, ref_img, frame, color=255):
     dst = cv2.perspectiveTransform(pts, homography)
     frame = cv2.polylines(
         frame, [np.int32(dst)], True, color, 3, cv2.LINE_AA)
-    return frame
+    return frame, dst
 
 
-def calculate_dist(kp1, matches1, kp2, matches2):
+def calculate_dist_matches(kp1, matches1, kp2, matches2):
     """
     Function to calculate distance between two planes after projecting using homographies.
     """
@@ -326,6 +327,13 @@ def calculate_dist(kp1, matches1, kp2, matches2):
     a = np.average(points2-points1, axis=0)
     # print("average: ", a)
     return a
+
+def calculate_dist_corners(corner1, corner2):
+    """
+    Function to calculate distance between two planes after projecting using homographies.
+    """
+    dst = np.average(corner2-corner1, axis=1)[0]
+    return dst
 
 def display_image_with_matched_keypoints(img1_loc, kps1_loc):
     """
