@@ -13,7 +13,8 @@ FEATURE_MATCHER = 'bf'  # 'bf'|'knn'
 NUM_GOOD_MATCHES = 200
 LOWES_RATIO = 0.75
 SCALING = 20  # Percent scale down
-MARKERS_PATHS = ['../markers/0.png', '../markers/1.png', '../markers/2.png']
+# MARKERS_PATHS = ['../markers/0.png', '../markers/1.png', '../markers/2.png']
+MARKERS_PATHS = ['../markers/0.png', '../markers/1.png']
 
 
 def create_matcher():
@@ -181,7 +182,7 @@ def get_hom(img1_descriptors, img2):
     (kp1, dsc1), (kp2, dsc2) = desca, descb
     avg_dist, points1, points2, matches = get_matches(kp1, dsc1, kp2, dsc2)
     hom, _ = cv2.findHomography(points1, points2, cv2.RANSAC)
-    return hom, matches, avg_dist
+    return hom, matches, avg_dist, kp2
 
 
 def get_homography_from_corners(corners, ref_image):
@@ -305,8 +306,21 @@ def draw_rectangle(homography, ref_img, frame):
     return frame
 
 
-def calculate_dist(homography1, homography2):
+def calculate_dist(kp1, matches1, kp2, matches2):
     """
     Function to calculate distance between two planes after projecting using homographies.
     """
-    raise NotImplementedError
+    minimum = min(len(matches1), len(matches2))
+    points1 = np.zeros((minimum, 2), dtype=np.float32)
+    points2 = np.zeros((minimum, 2), dtype=np.float32)
+
+    for i, match in enumerate(matches1[:minimum]):
+        points1[i, :] = kp1[match.trainIdx].pt
+
+    for i, match in enumerate(matches2[:minimum]):
+        points2[i, :] = kp2[match.trainIdx].pt
+
+    # print("mats: ", points2-points1)
+    a = np.average(points2-points1, axis=0)
+    # print("average: ", a)
+    return a

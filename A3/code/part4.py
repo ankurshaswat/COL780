@@ -40,22 +40,27 @@ if __name__ == "__main__":
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
 
-        if MATCH_DATA[0][0] is not None and MATCH_DATA[2][0] is not None:
+        if MATCH_DATA[0][0] is not None and MATCH_DATA[1][0] is not None:
 
             HOMOGRAPHY1 = MATCH_DATA[0][0]
-            HOMOGRAPHY2 = MATCH_DATA[2][0]
+            HOMOGRAPHY2 = MATCH_DATA[1][0]
+            MATCHES1 = MATCH_DATA[0][1]
+            MATCHES2 = MATCH_DATA[1][1]
+            KP1 = MATCH_DATA[0][3]
+            KP2 = MATCH_DATA[1][3]
 
             FRAME = draw_rectangle(HOMOGRAPHY1, REF_IMAGES[0], FRAME)
 
             PROJ_MAT1 = get_matrix(CAM_MAT, HOMOGRAPHY1)
 
-            DIST = calculate_dist(HOMOGRAPHY2, HOMOGRAPHY1)
+            DIST = calculate_dist(KP1, MATCHES1, KP2, MATCHES2)
+            # print("DIST: ", DIST)
             # dist = np.average(homography_dict[4][1]-homography_dict[1][1], axis=1)[0]
             DIST_X = DIST[0]
             DIST_Y = DIST[1]
 
-            STEP_X = DIST_X/100
-            STEP_Y = DIST_Y/100
+            STEP_X = DIST_X/10
+            STEP_Y = DIST_Y/10
 
             if abs(REACHED_X) >= abs(DIST_X) or abs(REACHED_Y) >= abs(DIST_Y):
                 REACHED_X = 0
