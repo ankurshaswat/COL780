@@ -231,6 +231,7 @@ def render(img, obj, projection, model, color=False):
     """
     Render a loaded obj model into the current video frame
     """
+    old_img = img.copy()
     vertices = obj.vertices
     scale_matrix = np.eye(3) * 3
     height, width, _ = model.shape
@@ -241,11 +242,19 @@ def render(img, obj, projection, model, color=False):
         points = np.dot(points, scale_matrix)
         # render model in the middle of the reference surface. To do so,
         # model points must be displaced
+        # print(points.shape)
         points = np.array(
             [[p[0] + width / 2, p[1] + height / 2, p[2]] for p in points])
         dst = cv2.perspectiveTransform(points.reshape((-1, 1, 3)), projection)
         imgpts = np.int32(dst)
-        # print("imgpts: ", imgpts)
+        mini_img = np.min(imgpts, axis = 0)[0]
+        maxi_img = np.max(imgpts, axis = 0)[0]
+        mini_canvas = [0,0]
+        maxi_canvas = [img.shape[0], img.shape[1]]
+
+        if (mini_img[0] < mini_canvas[0]) or (mini_img[1] < mini_canvas[1]) or (maxi_img[0] > maxi_canvas[0]) or (maxi_img[1] > maxi_canvas[1]):
+            return old_img
+
         if color is False:
             cv2.fillConvexPoly(img, imgpts, (137, 27, 211))
         else:
