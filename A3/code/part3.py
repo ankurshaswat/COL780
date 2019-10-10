@@ -8,7 +8,7 @@ import cv2
 
 import obj_loader
 from utils import (draw_harris_kps, draw_rectangle, find_homographies,
-                   get_camera_params, load_ref_images, render)
+                   get_camera_params, load_ref_images, render, get_matrix)
 
 RECTANGLE = True   # Display bounding rectangle or not
 DRAW_MATCHES = False   # Draw matches
@@ -37,10 +37,12 @@ if __name__ == "__main__":
         for ind, match_tuple in enumerate(MATCH_DATA):
             homography = match_tuple[0]
             if homography is not None:
-                # projection_matrix = get_matrix(camera_parameters, homography)
-                # frame = render(frame, obj, projection_matrix, ref_images[0], False)
+                projection_matrix = get_matrix(CAM_PARAMS, homography)
+                FRAME = render(FRAME, OBJ, projection_matrix,
+                               REF_IMAGES[0], False)
                 if RECTANGLE:
-                    FRAME = draw_rectangle(homography, REF_IMAGES[ind], FRAME)
+                    FRAME, _ = draw_rectangle(
+                        homography, REF_IMAGES[ind], FRAME)
 
         cv2.imshow('frame', FRAME)
         if cv2.waitKey(1) & 0xFF == ord('q'):
