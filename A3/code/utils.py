@@ -13,6 +13,7 @@ FEATURE_MATCHER = 'bf'  # 'bf'|'knn'
 NUM_GOOD_MATCHES = 200
 LOWES_RATIO = 0.75
 SCALING = 20  # Percent scale down
+MARKERS_PATHS = ['../markers/0.png', '../markers/1.png', '../markers/2.png']
 
 
 def create_matcher():
@@ -141,6 +142,14 @@ def get_matches(kp1_loc, dsc1_loc, kp2_loc, dsc2_loc):
     return average(matches_loc), points1_loc, points2_loc, matches_loc
 
 
+def display_image(img):
+    """
+    Show an image
+    """
+    plt.imshow(img)
+    plt.show()
+
+
 def draw_harris_kps(img):
     """
     Draw an image and its harris keypoints
@@ -189,7 +198,7 @@ def get_homography_from_corners(corners, ref_image):
     return homography, status
 
 
-def get_matrix(camera_params, homography):
+def get_matrix(camera_params, homography, translate=None):
     """
     Using camera params and homography matrix get projection matrix
     """
@@ -210,7 +219,11 @@ def get_matrix(camera_params, homography):
                             d_val/np.linalg.norm(d_val, 2))
     r3_ = np.cross(r1_, r2_)
     proj = np.stack((r1_, r2_, r3_, t_vec)).T
-    return np.dot(camera_params, proj)
+
+    if translate is None:
+        return np.dot(camera_params, proj)
+
+    return np.dot(camera_params, np.dot(translate, proj))
 
 
 def render(img, obj, projection, model, color=False):
@@ -246,3 +259,54 @@ def get_camera_params():
     Return a default camera parameter matrix
     """
     return np.array([[800, 0, 320], [0, 800, 240], [0, 0, 1]])
+
+
+def load_ref_images():
+    """
+    Load visual markers reference images
+    """
+
+    ref_imgs = []
+
+    for marker_path in MARKERS_PATHS:
+        ref_imgs.append(load_image(marker_path, False))
+
+    ref_descriptors = []
+
+    for img in ref_imgs:
+        img_grayscale = convert_to_grayscale(img)
+        ref_descriptors.append(get_descriptors(img_grayscale))
+
+    return ref_imgs, ref_descriptors
+
+
+def find_homographies(reference_descriptors, frame):
+    """
+    Find homography for each reference image
+    """
+    match_data = []  # (homography,matches,avg_dist)
+
+    for descriptor in reference_descriptors:
+        match_data.append(get_hom(descriptor, frame))
+
+    return match_data
+
+
+def draw_rectangle(homography, ref_img, frame):
+    """
+    Draw rectangles around each found visual marker
+    """
+    height, width, _ = ref_img.shape
+    pts = np.array([[0, 0], [0, height - 1], [width - 1, height - 1],
+                    [width - 1, 0]], dtype='float32').reshape((-1, 1, 2))
+    dst = cv2.perspectiveTransform(pts, homography)
+    frame = cv2.polylines(
+        frame, [np.int32(dst)], True, 255, 3, cv2.LINE_AA)
+    return frame
+
+
+def calculate_dist(homography1, homography2):
+    """
+    Function to calculate distance between two planes after projecting using homographies.
+    """
+    raise NotImplementedError
