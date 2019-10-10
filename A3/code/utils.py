@@ -324,3 +324,13 @@ def calculate_dist(kp1, matches1, kp2, matches2):
     a = np.average(points2-points1, axis=0)
     # print("average: ", a)
     return a
+
+def display_image_with_matched_keypoints(img1_loc, kps1_loc):
+    """
+    Display 2 images and their keypoints side by side
+    """
+    _, (ax1, ax2) = plt.subplots(nrows=1, ncols=2,
+                                 figsize=(20, 8), constrained_layout=False)
+    return cv2.drawKeypoints(img1_loc, kps1_loc, None, color=(255, 0, 0)) 
+    # ax1.imshow(cv2.drawKeypoints(img1_loc, kps1_loc, None, color=(255, 0, 0)))
+    # plt.show()
