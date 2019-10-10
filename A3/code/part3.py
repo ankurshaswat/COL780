@@ -19,7 +19,7 @@ if __name__ == "__main__":
     OBJ_PATH = sys.argv[1]
 
     OBJ = obj_loader.OBJ(OBJ_PATH, swapyz=True)
-    REF_IMAGES, REF_DSC = load_ref_images()
+    REF_IMAGES, REF_DSC = load_ref_images(1)
     CAM_PARAMS = get_camera_params()
     VID_FEED = cv2.VideoCapture(-1)
 
