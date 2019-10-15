@@ -20,7 +20,7 @@ if __name__ == "__main__":
             if cv2.isContourConvex(cnt):
                 conv_cont.append(cnt)
                 print('True')
-        cv2.drawContours(FRAME, conv_cont, -1, (0, 255, 0), 3)
+        FRAME = cv2.drawContours(FRAME, conv_cont, -1, (0, 255, 0), 3)
         
         
         cv2.imshow('frame', FRAME)

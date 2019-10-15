@@ -40,8 +40,6 @@ def average(lst):
     sum_ = 0
     for i in lst:
         sum_ += i.distance
-    if len(lst) == 0:
-        return 10
     return sum_ / len(lst)
 
 
@@ -191,10 +189,10 @@ def get_homography_from_corners(corners, ref_image):
     """
     Get homography using corners of reference image
     """
-    pts_dst = np.array([[corners[0][0], corners[0][1]],
-                        [corners[1][0], corners[1][1]],
-                        [corners[2][0], corners[2][1]],
-                        [corners[3][0], corners[3][1]]])
+    pts_dst = np.array([[corners[0][0][0], corners[0][0][1]],
+                        [corners[0][1][0], corners[0][1][1]],
+                        [corners[0][2][0], corners[0][2][1]],
+                        [corners[0][3][0], corners[0][3][1]]])
     pts_src = ref_image
 
     homography, status = cv2.findHomography(pts_src, pts_dst)
@@ -236,7 +234,7 @@ def render(img, obj, projection, model, color=False):
     old_img = img.copy()
     vertices = obj.vertices
     scale_matrix = np.eye(3) * 3
-    height, width = model.shape
+    height, width, _ = model.shape
 
     for face in obj.faces:
         face_vertices = face[0]
@@ -343,7 +341,7 @@ def calculate_dist_corners(corner1, corner2):
     """
     Function to calculate distance between two planes after projecting using homographies.
     """
-    dst = np.average(corner2-corner1, axis=0)
+    dst = np.average(corner2-corner1, axis=1)[0]
     return dst
 
 def display_image_with_matched_keypoints(img1_loc, kps1_loc):
