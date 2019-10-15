@@ -105,12 +105,16 @@ venv.bak/
 
 # Others
 
+.vscode/
+
 A1/videos
 A1/out_videos
 A1/out_videos_done
 A1/best_vids
-.vscode/
 A1/frames
+
 A2/InSample
 A2/dummy
 A2/OutSample
+
+A3/chessboard
