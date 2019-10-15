@@ -249,9 +249,9 @@ def render(img, obj, projection, model, color=False):
             [[p[0] + width / 2, p[1] + height / 2, p[2]] for p in points])
         dst = cv2.perspectiveTransform(points.reshape((-1, 1, 3)), projection)
         imgpts = np.int32(dst)
-        mini_img = np.min(imgpts, axis = 0)[0]
-        maxi_img = np.max(imgpts, axis = 0)[0]
-        mini_canvas = [0,0]
+        mini_img = np.min(imgpts, axis=0)[0]
+        maxi_img = np.max(imgpts, axis=0)[0]
+        mini_canvas = [0, 0]
         maxi_canvas = [img.shape[0], img.shape[1]]
 
         if (mini_img[0] < mini_canvas[0]) or (mini_img[1] < mini_canvas[1]) or (maxi_img[0] > maxi_canvas[0]) or (maxi_img[1] > maxi_canvas[1]):
@@ -339,6 +339,7 @@ def calculate_dist_matches(kp1, matches1, kp2, matches2):
     # print("average: ", a)
     return a
 
+
 def calculate_dist_corners(corner1, corner2):
     """
     Function to calculate distance between two planes after projecting using homographies.
@@ -346,10 +347,120 @@ def calculate_dist_corners(corner1, corner2):
     dst = np.average(corner2-corner1, axis=0)
     return dst
 
+
 def display_image_with_matched_keypoints(img1_loc, kps1_loc):
     """
     Display 2 images and their keypoints side by side
     """
     _, (ax1, ax2) = plt.subplots(nrows=1, ncols=2,
                                  figsize=(20, 8), constrained_layout=False)
-    return cv2.drawKeypoints(img1_loc, kps1_loc, None, color=(255, 0, 0)) 
+    return cv2.drawKeypoints(img1_loc, kps1_loc, None, color=(255, 0, 0))
+
+
+def init_game(size_window):
+    """
+    Init game of ping pong.
+    """
+    print(size_window)
+    game_obj = {
+        'pos': (size_window[1]/2, size_window[0]/2),
+        'velocity': (10, 10),
+        'rudder1_pos': (0.05*size_window[1], size_window[0]/2),
+        'rudder2_pos': (0.95*size_window[1], 1.5*size_window[0]/2),
+        'score1': 0,
+        'score2': 0,
+    }
+
+    return game_obj
+
+
+def draw_game(frame, size, game_obj):
+    """
+    Draw game using game_object on frame.
+    """
+    pos_float = game_obj['pos']
+    pos_int = ((int)(pos_float[0]), (int)(pos_float[1]))
+    frame = cv2.circle(frame, pos_int, 15, (0, 0, 255), -1)
+    frame = cv2.rectangle(frame, (15, 15), (640-15, 480-15), (0, 255, 0), 1)
+
+    rudder_len = 50
+    rudder_thickness = 2
+
+    player1_bat_center = game_obj['rudder1_pos']
+    player2_bat_center = game_obj['rudder2_pos']
+
+    p1_start = (int(
+        player1_bat_center[0]-rudder_thickness), int(player1_bat_center[1]-rudder_len))
+    p1_end = (
+        int(player1_bat_center[0]+rudder_thickness), int(player1_bat_center[1]+rudder_len))
+
+    p2_start = (
+        int(player2_bat_center[0]-rudder_thickness), int(player2_bat_center[1]-rudder_len))
+    p2_end = (
+        int(player2_bat_center[0]+rudder_thickness), int(player2_bat_center[1]+rudder_len))
+
+    frame = cv2.rectangle(frame, p1_start, p1_end, (0, 255, 0), -1)
+    frame = cv2.rectangle(frame, p2_start, p2_end, (0, 255, 0), -1)
+
+    size_x = size[1]
+    size_y = size[0]
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    bottomLeftCornerOfText = (10, size_y-10)
+    bottomRightCornerOfText = (size_x-30, size_y-10)
+    fontScale = 1
+    fontColor = (255, 255, 255)
+    lineType = 2
+
+    cv2.putText(frame, str(game_obj['score1']),
+                bottomLeftCornerOfText,
+                font,
+                fontScale,
+                fontColor,
+                lineType)
+
+    cv2.putText(frame, str(game_obj['score2']),
+                bottomRightCornerOfText,
+                font,
+                fontScale,
+                fontColor,
+                lineType)
+    return frame
+
+
+def update_game(game_obj, size, center1, center2):
+    """
+    Update game state
+    """
+    new_game_obj = game_obj.copy()
+
+    if center1 is not None:
+        new_game_obj['rudder1_pos'] = center1
+    if center2 is not None:
+        new_game_obj['rudder2_pos'] = center2
+
+    # Check if hitting corner
+    if new_game_obj['pos'][1] >= 480-15 or new_game_obj['pos'][1] <= 15:
+        init_vel = new_game_obj['velocity']
+        new_game_obj['velocity'] = (init_vel[0], -1*init_vel[1])
+    if new_game_obj['pos'][0] >= 640-15:
+        new_game_obj['pos'] = (size[1]/2, size[0]/2)
+        new_game_obj['velocity'] = (-1.05*abs(new_game_obj['velocity'][0]),
+                                    1.05*abs(new_game_obj['velocity'][1]))
+        new_game_obj['score1'] += 1
+    elif new_game_obj['pos'][0] <= 15:
+        new_game_obj['pos'] = (size[1]/2, size[0]/2)
+        new_game_obj['score2'] += 1
+        new_game_obj['velocity'] = (1.05*abs(new_game_obj['velocity'][0]),
+                                    -1.05*abs(new_game_obj['velocity'][1]))
+    elif 0 <= new_game_obj['pos'][0]-new_game_obj['rudder1_pos'][0] <= 17 and new_game_obj['rudder1_pos'][1]-(50+15) < new_game_obj['pos'][1] < new_game_obj['rudder1_pos'][1] + 50+15:
+        new_game_obj['velocity'] = (-1*init_vel[0], init_vel[1])
+    elif 0 <= new_game_obj['rudder2_pos'][0] - new_game_obj['pos'][0] <= 17 and new_game_obj['rudder2_pos'][1]-(50+15) < new_game_obj['pos'][1] < new_game_obj['rudder2_pos'][1]+(50+15):
+        init_vel = new_game_obj['velocity']
+        new_game_obj['velocity'] = (-1*init_vel[0], init_vel[1])
+
+    new_game_obj['pos'] = (new_game_obj['pos'][0] + new_game_obj['velocity']
+                           [0], new_game_obj['pos'][1] + new_game_obj['velocity'][1])
+
+    # print(new_game_obj)
+    return new_game_obj
