@@ -440,8 +440,8 @@ def update_game(game_obj, size, center1, center2):
         new_game_obj['rudder2_pos'] = center2
 
     # Check if hitting corner
+    init_vel = new_game_obj['velocity'] 
     if new_game_obj['pos'][1] >= 480-15 or new_game_obj['pos'][1] <= 15:
-        init_vel = new_game_obj['velocity']
         new_game_obj['velocity'] = (init_vel[0], -1*init_vel[1])
     if new_game_obj['pos'][0] >= 640-15:
         new_game_obj['pos'] = (size[1]/2, size[0]/2)
