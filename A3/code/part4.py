@@ -8,8 +8,10 @@ import cv2
 import numpy as np
 
 import obj_loader
-from utils_backup import (draw_rectangle, find_homographies, get_matrix,
-                   load_ref_images, calculate_dist_matches, calculate_dist_corners, render, display_image_with_matched_keypoints)
+from utils_backup import (calculate_dist_corners,
+                          display_image_with_matched_keypoints, draw_rectangle,
+                          find_homographies, get_camera_params, get_matrix,
+                          load_ref_images, render)
 
 if __name__ == "__main__":
     OBJ_PATH = sys.argv[1]
@@ -17,6 +19,7 @@ if __name__ == "__main__":
     OBJ = obj_loader.OBJ(OBJ_PATH, swapyz=True)
     REF_IMAGES, REF_DSC = load_ref_images()
     VID_FEED = cv2.VideoCapture(-1)
+    CAM_MAT = get_camera_params()
 
     REACHED_X, REACHED_Y = 0, 0
 
@@ -25,15 +28,6 @@ if __name__ == "__main__":
         if not RET:
             print("Unable to capture video")
             sys.exit()
-
-        SIZE = FRAME.shape
-        FOC_LEN = SIZE[1]
-        CENTER = (SIZE[1]/2, SIZE[0]/2)
-
-        CAM_MAT = np.array(
-            [[FOC_LEN, 0, CENTER[0]],
-             [0, FOC_LEN, CENTER[1]],
-             [0, 0, 1]], dtype="double")
 
         MATCH_DATA = find_homographies(REF_DSC, FRAME)
 
@@ -49,16 +43,17 @@ if __name__ == "__main__":
             KP1 = MATCH_DATA[0][3]
             KP2 = MATCH_DATA[1][3]
 
-            FRAME, corner1 = draw_rectangle(HOMOGRAPHY1, REF_IMAGES[0], FRAME)
-            FRAME, corner2 = draw_rectangle(HOMOGRAPHY2, REF_IMAGES[1], FRAME, 120)
+            FRAME, CORNER1 = draw_rectangle(HOMOGRAPHY1, REF_IMAGES[0], FRAME)
+            FRAME, CORNER2 = draw_rectangle(
+                HOMOGRAPHY2, REF_IMAGES[1], FRAME, 120)
 
             PROJ_MAT1 = get_matrix(CAM_MAT, HOMOGRAPHY1)
 
             # DIST = calculate_dist_matches(KP1, MATCHES1, KP2, MATCHES2)
-            DIST = calculate_dist_corners(corner1, corner2)
+            DIST = calculate_dist_corners(CORNER1, CORNER2)
 
-            kp2 = [KP1[match.trainIdx] for match in MATCHES1]
-            FRAME = display_image_with_matched_keypoints(FRAME, kp2)
+            KP2 = [KP1[match.trainIdx] for match in MATCHES1]
+            FRAME = display_image_with_matched_keypoints(FRAME, KP2)
             DIST_X = DIST[0]
             DIST_Y = DIST[1]
 

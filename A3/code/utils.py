@@ -2,6 +2,7 @@
 All functions combined
 """
 import math
+import pickle
 
 import cv2
 import matplotlib.pyplot as plt
@@ -236,7 +237,7 @@ def render(img, obj, projection, model, color=False):
     old_img = img.copy()
     vertices = obj.vertices
     scale_matrix = np.eye(3) * 3
-    height, width = model.shape
+    height, width, _ = model.shape
 
     for face in obj.faces:
         face_vertices = face[0]
@@ -271,7 +272,10 @@ def get_camera_params():
     """
     Return a default camera parameter matrix
     """
-    return np.array([[800, 0, 320], [0, 800, 240], [0, 0, 1]])
+    pickle_in = open("config.pickle", "rb")
+    data_dict = pickle.load(pickle_in)
+    return data_dict['mtx']
+    # return np.array([[800, 0, 320], [0, 800, 240], [0, 0, 1]])
 
 
 def load_ref_images(num_img=2):
@@ -366,7 +370,9 @@ def init_game(size_window):
         'pos': (size_window[1]/2, size_window[0]/2),
         'velocity': (10, 10),
         'rudder1_pos': (0.05*size_window[1], size_window[0]/2),
-        'rudder2_pos': (0.95*size_window[1], 1.5*size_window[0]/2),
+        'rudder1_col': (0, 255, 0),
+        'rudder2_col': (0, 255, 0),
+        'rudder2_pos': (0.95*size_window[1], size_window[0]/2),
         'score1': 0,
         'score2': 0,
     }
@@ -381,7 +387,7 @@ def draw_game(frame, size, game_obj):
     pos_float = game_obj['pos']
     pos_int = ((int)(pos_float[0]), (int)(pos_float[1]))
     frame = cv2.circle(frame, pos_int, 15, (0, 0, 255), -1)
-    frame = cv2.rectangle(frame, (15, 15), (640-15, 480-15), (0, 255, 0), 1)
+    # frame = cv2.rectangle(frame, (15, 15), (640-15, 480-15), (0, 255, 0), 1)
 
     rudder_len = 50
     rudder_thickness = 2
@@ -399,8 +405,9 @@ def draw_game(frame, size, game_obj):
     p2_end = (
         int(player2_bat_center[0]+rudder_thickness), int(player2_bat_center[1]+rudder_len))
 
-    frame = cv2.rectangle(frame, p1_start, p1_end, (0, 255, 0), -1)
-    frame = cv2.rectangle(frame, p2_start, p2_end, (0, 255, 0), -1)
+    frame = cv2.rectangle(frame, p1_start, p1_end, game_obj['rudder1_col'], -1)
+    frame = cv2.rectangle(frame, p2_start, p2_end,
+                          game_obj['rudder2_col'], -1)
 
     size_x = size[1]
     size_y = size[0]
@@ -428,19 +435,19 @@ def draw_game(frame, size, game_obj):
     return frame
 
 
-def update_game(game_obj, size, center1, center2):
+def update_game(game_obj, size, y1, y2):
     """
     Update game state
     """
     new_game_obj = game_obj.copy()
 
-    if center1 is not None:
-        new_game_obj['rudder1_pos'] = center1
-    if center2 is not None:
-        new_game_obj['rudder2_pos'] = center2
+    if y1 is not None:
+        new_game_obj['rudder1_pos'] = (new_game_obj['rudder1_pos'][0], y1)
+    if y2 is not None:
+        new_game_obj['rudder2_pos'] = (new_game_obj['rudder2_pos'][0], y2)
 
     # Check if hitting corner
-    init_vel = new_game_obj['velocity'] 
+    init_vel = new_game_obj['velocity']
     if new_game_obj['pos'][1] >= 480-15 or new_game_obj['pos'][1] <= 15:
         new_game_obj['velocity'] = (init_vel[0], -1*init_vel[1])
     if new_game_obj['pos'][0] >= 640-15:
@@ -455,10 +462,17 @@ def update_game(game_obj, size, center1, center2):
                                     -1.05*abs(new_game_obj['velocity'][1]))
     elif 0 <= new_game_obj['pos'][0]-new_game_obj['rudder1_pos'][0] <= 17 and new_game_obj['rudder1_pos'][1]-(50+15) < new_game_obj['pos'][1] < new_game_obj['rudder1_pos'][1] + 50+15:
         new_game_obj['velocity'] = (-1*init_vel[0], init_vel[1])
+        if new_game_obj['rudder1_col'] == (0, 255, 0):
+            new_game_obj['rudder1_col'] = (0, 0, 255)
+        else:
+            new_game_obj['rudder1_col'] = (0, 255, 0)
     elif 0 <= new_game_obj['rudder2_pos'][0] - new_game_obj['pos'][0] <= 17 and new_game_obj['rudder2_pos'][1]-(50+15) < new_game_obj['pos'][1] < new_game_obj['rudder2_pos'][1]+(50+15):
         init_vel = new_game_obj['velocity']
         new_game_obj['velocity'] = (-1*init_vel[0], init_vel[1])
-
+        if new_game_obj['rudder2_col'] == (0, 255, 0):
+            new_game_obj['rudder2_col'] = (0, 0, 255)
+        else:
+            new_game_obj['rudder2_col'] = (0, 255, 0)
     new_game_obj['pos'] = (new_game_obj['pos'][0] + new_game_obj['velocity']
                            [0], new_game_obj['pos'][1] + new_game_obj['velocity'][1])
 

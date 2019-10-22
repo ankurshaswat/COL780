@@ -12,7 +12,7 @@ from utils import (draw_harris_kps, draw_rectangle, find_homographies,
 
 RECTANGLE = True   # Display bounding rectangle or not
 DRAW_MATCHES = False   # Draw matches
-DRAW_HARRIS = True
+DRAW_HARRIS = False
 
 if __name__ == "__main__":
 
