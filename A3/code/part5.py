@@ -39,7 +39,7 @@ if __name__ == "__main__":
         cv2.imshow("frame", FRAME)
 
         PADDLE1_POS, PADDLE2_POS = None, None
-
+        # print(CORNERS)
         if CORNERS[0] is not None:
             PADDLE1_POS = np.average(CORNERS[0], axis=0)[1]
         if CORNERS[1] is not None:

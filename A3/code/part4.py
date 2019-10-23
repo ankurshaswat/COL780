@@ -48,8 +48,8 @@ if __name__ == "__main__":
             DIST_X = DIST[0]
             DIST_Y = DIST[1]
 
-            STEP_X = DIST_X/10
-            STEP_Y = DIST_Y/10
+            STEP_X = DIST_X/40
+            STEP_Y = DIST_Y/40
 
             if abs(REACHED_X) >= abs(DIST_X) or abs(REACHED_Y) >= abs(DIST_Y):
                 REACHED_X = 0

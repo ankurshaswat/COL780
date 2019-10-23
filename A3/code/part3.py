@@ -9,9 +9,9 @@ import cv2
 import obj_loader
 from utils import (draw_harris_kps, draw_rectangle, get_camera_params,
                    get_homographies_contour, get_matrix, load_ref_images,
-                   render)
+                   render,draw_corners)
 
-RECTANGLE = True   # Display bounding rectangle or not
+RECTANGLE = False   # Display bounding rectangle or not
 DRAW_MATCHES = False   # Draw matches
 DRAW_HARRIS = False
 
@@ -35,13 +35,15 @@ if __name__ == "__main__":
             FRAME = draw_harris_kps(FRAME)
 
         # MATCH_DATA = find_homographies(REF_DSC, FRAME)
-        MATCH_DATA, _ = get_homographies_contour(FRAME, REF_IMAGES, MATCH_DATA, None)
+        MATCH_DATA, _ = get_homographies_contour(
+            FRAME, REF_IMAGES, MATCH_DATA, None)
 
         for ind, homography in enumerate(MATCH_DATA):
             # homography = match_tuple[0]
             if homography is not None:
                 projection_matrix, R, T = get_matrix(CAM_PARAMS, homography)
                 print(R, T)
+                # FRAME = draw_corners(FRAME, homography)
                 FRAME = render(FRAME, OBJ, projection_matrix,
                                REF_IMAGES[ind], False)
                 if RECTANGLE:

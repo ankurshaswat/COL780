@@ -3,6 +3,7 @@ All functions combined
 """
 import math
 import pickle
+from scipy.spatial import distance as dist
 
 import cv2
 import matplotlib.pyplot as plt
@@ -365,10 +366,10 @@ def init_game(size_window):
     """
     Init game of ping pong.
     """
-    print(size_window)
+    # print(size_window)
     game_obj = {
         'pos': (size_window[1]/2, size_window[0]/2),
-        'velocity': (10, 10),
+        'velocity': (5, 5),
         'rudder1_pos': (0.05*size_window[1], size_window[0]/2),
         'rudder1_col': (0, 255, 0),
         'rudder2_col': (0, 255, 0),
@@ -441,6 +442,8 @@ def update_game(game_obj, size, y_1, y_2):
     """
     new_game_obj = game_obj.copy()
 
+    speed_inc = 1.02
+
     if y_1 is not None:
         new_game_obj['rudder1_pos'] = (new_game_obj['rudder1_pos'][0], y_1)
     if y_2 is not None:
@@ -452,14 +455,14 @@ def update_game(game_obj, size, y_1, y_2):
         new_game_obj['velocity'] = (init_vel[0], -1*init_vel[1])
     if new_game_obj['pos'][0] >= 640-15:
         new_game_obj['pos'] = (size[1]/2, size[0]/2)
-        new_game_obj['velocity'] = (-1.05*abs(new_game_obj['velocity'][0]),
-                                    1.05*abs(new_game_obj['velocity'][1]))
+        new_game_obj['velocity'] = (-speed_inc*abs(new_game_obj['velocity'][0]),
+                                    speed_inc*abs(new_game_obj['velocity'][1]))
         new_game_obj['score1'] += 1
     elif new_game_obj['pos'][0] <= 15:
         new_game_obj['pos'] = (size[1]/2, size[0]/2)
         new_game_obj['score2'] += 1
-        new_game_obj['velocity'] = (1.05*abs(new_game_obj['velocity'][0]),
-                                    -1.05*abs(new_game_obj['velocity'][1]))
+        new_game_obj['velocity'] = (speed_inc*abs(new_game_obj['velocity'][0]),
+                                    -speed_inc*abs(new_game_obj['velocity'][1]))
     elif 0 <= new_game_obj['pos'][0]-new_game_obj['rudder1_pos'][0] <= 17 and new_game_obj['rudder1_pos'][1]-(50+15) < new_game_obj['pos'][1] < new_game_obj['rudder1_pos'][1] + 50+15:
         new_game_obj['velocity'] = (-1*init_vel[0], init_vel[1])
         if new_game_obj['rudder1_col'] == (0, 255, 0):
@@ -577,11 +580,11 @@ def compare_markers(matrices, ref_images):
     for ref in refs:
         if len(thresh) > 0:
             mini = np.sum(np.absolute(refs[0]-thresh[0]))
-            rot = (thresh[0], ref, 0, mini)
+            rot = None
             for thr_ind, threshold in enumerate(thresh):
                 for i in range(4):
                     sum_val = np.sum(np.absolute(np.rot90(ref, i)-threshold))
-                    if sum_val < mini:
+                    if sum_val <= mini:
                         if len(ret) > 0 and ret[0][2] != thr_ind:
                             mini = sum_val
                             rot = (threshold, i, thr_ind, mini)
@@ -609,15 +612,29 @@ REF_IMAGE3 = np.array([[0, 0],
 ROT = np.array([[0, 1], [3, 2]])
 
 
+def order_points2(pts):
+    xSorted = pts[np.argsort(pts[:, 0]), :]
+    leftMost = xSorted[:2, :]
+    rightMost = xSorted[2:, :]
+    leftMost = leftMost[np.argsort(leftMost[:, 1]), :]
+    (tl, bl) = leftMost
+    D = dist.cdist(tl[np.newaxis], rightMost, "euclidean")[0]
+    (br, tr) = rightMost[np.argsort(D)[::-1], :]
+    # print(tl)
+    return np.array([tl, tr, br, bl])
+
+
 def get_homographies_contour(original_frame, ref_images, old_match, old_corners):
     """
     Use contour detection to find homographies.
     """
+    T_num = 0
     frame = convert_to_grayscale(original_frame)
     # frame = cv2.GaussianBlur(frame, (5, 5), 0)
     thresh = cv2.adaptiveThreshold(
         frame, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 10)
-    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(
+        thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     # contours, _ = cv2.findContours(thresh, 1, 2)
 
     area_contour = [
@@ -628,7 +645,8 @@ def get_homographies_contour(original_frame, ref_images, old_match, old_corners)
     # cv2.imshow(, sel[0])
 
     # cv2.imshow("contours", original_frame)
-    poly = [cv2.approxPolyDP(cnt, 0.01*cv2.arcLength(cnt, True), True) for cnt in area_contour]
+    poly = [cv2.approxPolyDP(cnt, 0.01*cv2.arcLength(cnt, True), True)
+            for cnt in area_contour]
     boxes = [np.reshape(p, (p.shape[0], 2)) for p in poly if p.shape[0] == 4]
     # print("POLY: ", poly[0])
     # rects = [cv2.minAreaRect(i) for i in area_contour]
@@ -636,30 +654,46 @@ def get_homographies_contour(original_frame, ref_images, old_match, old_corners)
     # print("BOX: ", boxes[0])
     # print(len(boxes))
 
+    for i in range(len(boxes)):
+        # print(boxes[i])
+        boxes[i] = order_points2(np.array(boxes[i]))
+        # print(boxes[i])
+        # boxes[i] = boxes[i][boxes[i][:,0].argsort()]
+        # boxes[i] = boxes[i][boxes[i][:,1].argsort()]
+        # boxes[i][2:] = boxes[i][2:][boxes[i][2:,0].argsort()][::-1]
+        # print(boxes[i])
+
+        # boxes[i].sort(order=['f1', 'f0'], axis=0)
+        # boxes[i][2:4] = boxes[i][3:1:-1]
+        # print(boxes[i][3:1:-1])
+
     warped = [four_point_transform(frame, box) for box in boxes]
     selected_markers = compare_markers(warped, ref_images)
 
     # i = 0
     # print(len(selected_markers))
     for sel in selected_markers:
-        if sel[3] <= 4:
+        if sel is not None and sel[3] <= T_num:
             cv2.drawContours(original_frame, [
-                             boxes[sel[2]]], -1, (0, 0, 255), 3)
+                             boxes[sel[2]]], -1, (0, 0,
+                                                  255), 3)
         # cv2.imshow(str(i), sel[0])
 
     hom1, hom2 = None, None
     corner1, corner2 = None, None
     if len(selected_markers) > 0:
-        if selected_markers[0][3] <= 4:
-            rot3 = np.rot90(ROT)
+        if selected_markers[0] is not None and selected_markers[0][3] <= T_num:
+            # print(selected_markers[0][1])
+            rot3 = np.rot90(ROT, selected_markers[0][1])
             REF_IMAGE3[0] = REF_IMAGE1[rot3[0, 0]]
             REF_IMAGE3[1] = REF_IMAGE1[rot3[0, 1]]
             REF_IMAGE3[2] = REF_IMAGE1[rot3[1, 1]]
             REF_IMAGE3[3] = REF_IMAGE1[rot3[1, 0]]
+
             hom1 = get_homography_from_corners(
                 boxes[selected_markers[0][2]], REF_IMAGE3)[0]
             corner1 = boxes[selected_markers[0][2]]
-        if len(selected_markers) > 1:
+        if len(selected_markers) > 1 and selected_markers[1] is not None and selected_markers[1][3] <= T_num:
             hom2 = get_homography_from_corners(
                 boxes[selected_markers[1][2]], REF_IMAGE2)[0]
             corner2 = boxes[selected_markers[1][2]]
@@ -690,3 +724,30 @@ def get_r_t(camera_params, homography):
     r3_ = np.cross(r1_, r2_)
 
     return [r1_, r2_, r3_], t_vec
+
+
+def draw_corners(frame, homo):
+    x = 700
+    # print(homo)
+    pts = np.float32([[0, 0], [0, x], [x, x], [x, 0]]).reshape(-1, 1, 2)
+    # print(pts)
+    new_pts = cv2.perspectiveTransform(pts, homo)
+    # print(new_pts)
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 1
+    font_color = (255, 255, 255)
+    line_type = 2
+
+    i = 0
+    for pt in new_pts:
+        # print(pt)
+        pt_trans = (pt[0][0], pt[0][1])
+        cv2.putText(frame, str(i),
+                    pt_trans,
+                    font,
+                    font_scale,
+                    font_color,
+                    line_type)
+        i += 1
+    return frame
