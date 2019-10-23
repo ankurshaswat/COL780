@@ -525,6 +525,7 @@ def get_middle(arr):
     """
     n_val = np.array(arr.shape) / 2.0
     n_int = n_val.astype(np.int0)
+    # print(n_int)
     if n_val[0] % 2 == 1 and n_val[1] % 2 == 1:
         return arr[n_int[0], n_int[1]]
 
@@ -551,8 +552,11 @@ def get_binary(images, divsions):
         mat = np.zeros([divsions, divsions])
         for i in range(divsions):
             for j in range(divsions):
-                avg = get_middle(
-                    thr[i*jump[0]:(i+1)*jump[0], j*jump[1]:(j+1)*jump[1]])
+                try:
+                    avg = get_middle(
+                        thr[i*jump[0]:(i+1)*jump[0], j*jump[1]:(j+1)*jump[1]])
+                except:
+                    avg = 0
                 if avg >= 0.5:
                     mat[i][j] = 1
                 else:
@@ -565,23 +569,26 @@ def compare_markers(matrices, ref_images):
     """
     Compare markers with reference images
     """
-    thresh = get_binary(matrices, 7)
-    refs = get_binary([convert_to_grayscale(ref) for ref in ref_images], 7)
+    thresh = get_binary(matrices, 8)
+    refs = get_binary([convert_to_grayscale(ref) for ref in ref_images], 8)
+    # print(len(thresh))
+
     ret = []
     for ref in refs:
-        mini = np.sum(np.absolute(refs[0]-thresh[0]))
-        rot = (thresh[0], ref, 0, mini)
-        for thr_ind, threshold in enumerate(thresh):
-            for i in range(4):
-                sum_val = np.sum(np.absolute(np.rot90(ref, i)-threshold))
-                if sum_val < mini:
-                    if len(ret) > 0 and ret[0][2] != thr_ind:
-                        mini = sum_val
-                        rot = (threshold, i, thr_ind, mini)
-                    elif len(ret) == 0:
-                        mini = sum_val
-                        rot = (threshold, i, thr_ind, mini)
-        ret.append(rot)
+        if len(thresh) > 0:
+            mini = np.sum(np.absolute(refs[0]-thresh[0]))
+            rot = (thresh[0], ref, 0, mini)
+            for thr_ind, threshold in enumerate(thresh):
+                for i in range(4):
+                    sum_val = np.sum(np.absolute(np.rot90(ref, i)-threshold))
+                    if sum_val < mini:
+                        if len(ret) > 0 and ret[0][2] != thr_ind:
+                            mini = sum_val
+                            rot = (threshold, i, thr_ind, mini)
+                        elif len(ret) == 0:
+                            mini = sum_val
+                            rot = (threshold, i, thr_ind, mini)
+            ret.append(rot)
     return ret
 
 
@@ -602,44 +609,63 @@ REF_IMAGE3 = np.array([[0, 0],
 ROT = np.array([[0, 1], [3, 2]])
 
 
-def get_homographies_contour(original_frame, ref_images):
+def get_homographies_contour(original_frame, ref_images, old_match, old_corners):
     """
     Use contour detection to find homographies.
     """
     frame = convert_to_grayscale(original_frame)
-    frame = cv2.GaussianBlur(frame, (5, 5), 0)
+    # frame = cv2.GaussianBlur(frame, (5, 5), 0)
     thresh = cv2.adaptiveThreshold(
-        frame, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-    contours, _ = cv2.findContours(thresh, 1, 2)
+        frame, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 10)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    # contours, _ = cv2.findContours(thresh, 1, 2)
+
     area_contour = [
         contour for contour in contours if cv2.contourArea(contour) >= 500]
-    rects = [cv2.minAreaRect(i) for i in area_contour]
-    boxes = [np.int0(cv2.boxPoints(i)) for i in rects]
+
+    # for cnt in area_contour:
+    #     cv2.drawContours(original_frame, cnt, -1, (0,0,255), 2)
+    # cv2.imshow(, sel[0])
+
+    # cv2.imshow("contours", original_frame)
+    poly = [cv2.approxPolyDP(cnt, 0.01*cv2.arcLength(cnt, True), True) for cnt in area_contour]
+    boxes = [np.reshape(p, (p.shape[0], 2)) for p in poly if p.shape[0] == 4]
+    # print("POLY: ", poly[0])
+    # rects = [cv2.minAreaRect(i) for i in area_contour]
+    # boxes = [np.int0(cv2.boxPoints(i)) for i in rects]
+    # print("BOX: ", boxes[0])
+    # print(len(boxes))
+
     warped = [four_point_transform(frame, box) for box in boxes]
     selected_markers = compare_markers(warped, ref_images)
 
+    # i = 0
+    # print(len(selected_markers))
     for sel in selected_markers:
         if sel[3] <= 4:
             cv2.drawContours(original_frame, [
                              boxes[sel[2]]], -1, (0, 0, 255), 3)
+        # cv2.imshow(str(i), sel[0])
 
     hom1, hom2 = None, None
     corner1, corner2 = None, None
-    if selected_markers[0][3] <= 4:
-        rot3 = np.rot90(ROT)
-        REF_IMAGE3[0] = REF_IMAGE1[rot3[0, 0]]
-        REF_IMAGE3[1] = REF_IMAGE1[rot3[0, 1]]
-        REF_IMAGE3[2] = REF_IMAGE1[rot3[1, 1]]
-        REF_IMAGE3[3] = REF_IMAGE1[rot3[1, 0]]
-        hom1 = get_homography_from_corners(
-            boxes[selected_markers[0][2]], REF_IMAGE3)[0]
-        corner1 = boxes[selected_markers[0][2]]
-    if len(selected_markers) > 1:
-        hom2 = get_homography_from_corners(
-            boxes[selected_markers[1][2]], REF_IMAGE2)[0]
-        corner2 = boxes[selected_markers[1][2]]
-
-    return [hom1, hom2], [corner1, corner2]
+    if len(selected_markers) > 0:
+        if selected_markers[0][3] <= 4:
+            rot3 = np.rot90(ROT)
+            REF_IMAGE3[0] = REF_IMAGE1[rot3[0, 0]]
+            REF_IMAGE3[1] = REF_IMAGE1[rot3[0, 1]]
+            REF_IMAGE3[2] = REF_IMAGE1[rot3[1, 1]]
+            REF_IMAGE3[3] = REF_IMAGE1[rot3[1, 0]]
+            hom1 = get_homography_from_corners(
+                boxes[selected_markers[0][2]], REF_IMAGE3)[0]
+            corner1 = boxes[selected_markers[0][2]]
+        if len(selected_markers) > 1:
+            hom2 = get_homography_from_corners(
+                boxes[selected_markers[1][2]], REF_IMAGE2)[0]
+            corner2 = boxes[selected_markers[1][2]]
+        return [hom1, hom2], [corner1, corner2]
+    else:
+        return old_match, old_corners
 
 
 def get_r_t(camera_params, homography):

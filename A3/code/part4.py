@@ -21,13 +21,15 @@ if __name__ == "__main__":
 
     REACHED_X, REACHED_Y = 0, 0
 
+    MATCH_DATA = [None, None]
+    CORNER_DATA = [None, None]
     while True:
         RET, FRAME = VID_FEED.read()
         if not RET:
             print("Unable to capture video")
             sys.exit()
 
-        MATCH_DATA, CORNER_DATA = get_homographies_contour(FRAME, REF_IMAGES)
+        MATCH_DATA, CORNER_DATA = get_homographies_contour(FRAME, REF_IMAGES, MATCH_DATA, CORNER_DATA)
 
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
