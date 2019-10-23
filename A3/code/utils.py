@@ -225,9 +225,9 @@ def get_matrix(camera_params, homography, translate=None):
     proj = np.stack((r1_, r2_, r3_, t_vec)).T
 
     if translate is None:
-        return np.dot(camera_params, proj)
+        return np.dot(camera_params, proj), [r1_, r2_, r3_], t_vec
 
-    return np.dot(camera_params, np.dot(translate, proj))
+    return np.dot(camera_params, np.dot(translate, proj)), [r1_, r2_, r3_], t_vec
 
 
 def render(img, obj, projection, model, color=False):
@@ -339,9 +339,9 @@ def calculate_dist_matches(kp1, matches1, kp2, matches2):
         points2[i, :] = kp2[match.trainIdx].pt
 
     # print("mats: ", points2-points1)
-    a = np.average(points2-points1, axis=0)
+    avg = np.average(points2-points1, axis=0)
     # print("average: ", a)
-    return a
+    return avg
 
 
 def calculate_dist_corners(corner1, corner2):
@@ -356,8 +356,8 @@ def display_image_with_matched_keypoints(img1_loc, kps1_loc):
     """
     Display 2 images and their keypoints side by side
     """
-    _, (ax1, ax2) = plt.subplots(nrows=1, ncols=2,
-                                 figsize=(20, 8), constrained_layout=False)
+    # _, (ax1, ax2) = plt.subplots(nrows=1, ncols=2,
+    #  figsize=(20, 8), constrained_layout=False)
     return cv2.drawKeypoints(img1_loc, kps1_loc, None, color=(255, 0, 0))
 
 
@@ -413,38 +413,38 @@ def draw_game(frame, size, game_obj):
     size_y = size[0]
 
     font = cv2.FONT_HERSHEY_SIMPLEX
-    bottomLeftCornerOfText = (10, size_y-10)
-    bottomRightCornerOfText = (size_x-30, size_y-10)
-    fontScale = 1
-    fontColor = (255, 255, 255)
-    lineType = 2
+    bottom_left = (10, size_y-10)
+    bottom_right = (size_x-30, size_y-10)
+    font_scale = 1
+    font_color = (255, 255, 255)
+    line_type = 2
 
     cv2.putText(frame, str(game_obj['score1']),
-                bottomLeftCornerOfText,
+                bottom_left,
                 font,
-                fontScale,
-                fontColor,
-                lineType)
+                font_scale,
+                font_color,
+                line_type)
 
     cv2.putText(frame, str(game_obj['score2']),
-                bottomRightCornerOfText,
+                bottom_right,
                 font,
-                fontScale,
-                fontColor,
-                lineType)
+                font_scale,
+                font_color,
+                line_type)
     return frame
 
 
-def update_game(game_obj, size, y1, y2):
+def update_game(game_obj, size, y_1, y_2):
     """
     Update game state
     """
     new_game_obj = game_obj.copy()
 
-    if y1 is not None:
-        new_game_obj['rudder1_pos'] = (new_game_obj['rudder1_pos'][0], y1)
-    if y2 is not None:
-        new_game_obj['rudder2_pos'] = (new_game_obj['rudder2_pos'][0], y2)
+    if y_1 is not None:
+        new_game_obj['rudder1_pos'] = (new_game_obj['rudder1_pos'][0], y_1)
+    if y_2 is not None:
+        new_game_obj['rudder2_pos'] = (new_game_obj['rudder2_pos'][0], y_2)
 
     # Check if hitting corner
     init_vel = new_game_obj['velocity']
@@ -478,3 +478,189 @@ def update_game(game_obj, size, y1, y2):
 
     # print(new_game_obj)
     return new_game_obj
+
+
+def order_points(pts):
+    """
+    Order four points
+    """
+    rect = np.zeros((4, 2), dtype="float32")
+    sum_val = pts.sum(axis=1)
+    rect[0] = pts[np.argmin(sum_val)]
+    rect[2] = pts[np.argmax(sum_val)]
+    diff = np.diff(pts, axis=1)
+    rect[1] = pts[np.argmin(diff)]
+    rect[3] = pts[np.argmax(diff)]
+    return rect
+
+
+def four_point_transform(image, pts):
+    """
+    Transform rectange corners ???
+    """
+    rect = order_points(pts)
+    (t_l, t_r, b_r, b_l) = rect
+
+    width_a = np.sqrt(((b_r[0] - b_l[0]) ** 2) + ((b_r[1] - b_l[1]) ** 2))
+    width_b = np.sqrt(((t_r[0] - t_l[0]) ** 2) + ((t_r[1] - t_l[1]) ** 2))
+    max_width = max(int(width_a), int(width_b))
+
+    height_a = np.sqrt(((t_r[0] - b_r[0]) ** 2) + ((t_r[1] - b_r[1]) ** 2))
+    height_b = np.sqrt(((t_l[0] - b_l[0]) ** 2) + ((t_l[1] - b_l[1]) ** 2))
+    max_height = max(int(height_a), int(height_b))
+
+    dst = np.array([
+        [0, 0],
+        [max_width - 1, 0],
+        [max_width - 1, max_height - 1],
+        [0, max_height - 1]], dtype="float32")
+
+    m_val = cv2.getPerspectiveTransform(rect, dst)
+    return cv2.warpPerspective(image, m_val, (max_width, max_height))
+
+
+def get_middle(arr):
+    """
+    Get middle point ????
+    """
+    n_val = np.array(arr.shape) / 2.0
+    n_int = n_val.astype(np.int0)
+    if n_val[0] % 2 == 1 and n_val[1] % 2 == 1:
+        return arr[n_int[0], n_int[1]]
+
+    if n_val[0] % 2 == 0 and n_val[1] % 2 == 0:
+        return np.average(arr[n_int[0]:n_int[0] + 2, n_int[1]:n_int[1] + 2])
+
+    if n_val[0] % 2 == 1 and n_val[1] % 2 == 0:
+        return np.average(arr[n_int[0], n_int[1]:n_int[1]+2])
+
+    return np.average(arr[n_int[0]:n_int[0]+2, n_int[1]])
+
+
+def get_binary(images, divsions):
+    """
+    Get binary maps ????
+    """
+    threshed = [cv2.GaussianBlur(thresh, (5, 5), 0) for thresh in images]
+    threshed = [cv2.threshold(
+        warp, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)[1]/255 for warp in threshed]
+    mats = []
+    for thr in threshed:
+        shap = thr.shape
+        jump = (np.array(shap)/divsions).astype(np.int0)
+        mat = np.zeros([divsions, divsions])
+        for i in range(divsions):
+            for j in range(divsions):
+                avg = get_middle(
+                    thr[i*jump[0]:(i+1)*jump[0], j*jump[1]:(j+1)*jump[1]])
+                if avg >= 0.5:
+                    mat[i][j] = 1
+                else:
+                    mat[i][j] = 0
+        mats.append(mat)
+    return mats
+
+
+def compare_markers(matrices, ref_images):
+    """
+    Compare markers with reference images
+    """
+    thresh = get_binary(matrices, 7)
+    refs = get_binary([convert_to_grayscale(ref) for ref in ref_images], 7)
+    ret = []
+    for ref in refs:
+        mini = np.sum(np.absolute(refs[0]-thresh[0]))
+        rot = (thresh[0], ref, 0, mini)
+        for thr_ind, threshold in enumerate(thresh):
+            for i in range(4):
+                sum_val = np.sum(np.absolute(np.rot90(ref, i)-threshold))
+                if sum_val < mini:
+                    if len(ret) > 0 and ret[0][2] != thr_ind:
+                        mini = sum_val
+                        rot = (threshold, i, thr_ind, mini)
+                    elif len(ret) == 0:
+                        mini = sum_val
+                        rot = (threshold, i, thr_ind, mini)
+        ret.append(rot)
+    return ret
+
+
+REF_IMAGE1 = np.array([[0, 0],
+                       [0, 700],
+                       [700, 700],
+                       [700, 0]], dtype=np.float32)
+REF_IMAGE2 = np.array([[0, 0],
+                       [0, 700],
+                       [700, 700],
+                       [700, 0]], dtype=np.float32)
+
+REF_IMAGE3 = np.array([[0, 0],
+                       [0, 700],
+                       [700, 700],
+                       [700, 0]], dtype=np.float32)
+
+ROT = np.array([[0, 1], [3, 2]])
+
+
+def get_homographies_contour(original_frame, ref_images):
+    """
+    Use contour detection to find homographies.
+    """
+    frame = convert_to_grayscale(original_frame)
+    frame = cv2.GaussianBlur(frame, (5, 5), 0)
+    thresh = cv2.adaptiveThreshold(
+        frame, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+    contours, _ = cv2.findContours(thresh, 1, 2)
+    area_contour = [
+        contour for contour in contours if cv2.contourArea(contour) >= 500]
+    rects = [cv2.minAreaRect(i) for i in area_contour]
+    boxes = [np.int0(cv2.boxPoints(i)) for i in rects]
+    warped = [four_point_transform(frame, box) for box in boxes]
+    selected_markers = compare_markers(warped, ref_images)
+
+    for sel in selected_markers:
+        if sel[3] <= 4:
+            cv2.drawContours(original_frame, [
+                             boxes[sel[2]]], -1, (0, 0, 255), 3)
+
+    hom1, hom2 = None, None
+    corner1, corner2 = None, None
+    if selected_markers[0][3] <= 4:
+        rot3 = np.rot90(ROT)
+        REF_IMAGE3[0] = REF_IMAGE1[rot3[0, 0]]
+        REF_IMAGE3[1] = REF_IMAGE1[rot3[0, 1]]
+        REF_IMAGE3[2] = REF_IMAGE1[rot3[1, 1]]
+        REF_IMAGE3[3] = REF_IMAGE1[rot3[1, 0]]
+        hom1 = get_homography_from_corners(
+            boxes[selected_markers[0][2]], REF_IMAGE3)[0]
+        corner1 = boxes[selected_markers[0][2]]
+    if len(selected_markers) > 1:
+        hom2 = get_homography_from_corners(
+            boxes[selected_markers[1][2]], REF_IMAGE2)[0]
+        corner2 = boxes[selected_markers[1][2]]
+
+    return [hom1, hom2], [corner1, corner2]
+
+
+def get_r_t(camera_params, homography):
+    """
+    Get R and T to print
+    """
+    r_t = np.dot(np.linalg.inv(camera_params), homography)
+    r_1 = r_t[:, 0]
+    r_2 = r_t[:, 1]
+    t_vec = r_t[:, 2]
+    norm = math.sqrt(np.linalg.norm(r_1, 2) * np.linalg.norm(r_2, 2))
+    r_1 = r_1/norm
+    r_2 = r_2/norm
+    t_vec = t_vec/norm
+    c_val = r_1+r_2
+    p_val = np.cross(r_1, r_2)
+    d_val = np.cross(c_val, p_val)
+    r1_ = (1/math.sqrt(2))*(c_val/np.linalg.norm(c_val, 2) +
+                            d_val/np.linalg.norm(d_val, 2))
+    r2_ = (1/math.sqrt(2))*(c_val/np.linalg.norm(c_val, 2) -
+                            d_val/np.linalg.norm(d_val, 2))
+    r3_ = np.cross(r1_, r2_)
+
+    return [r1_, r2_, r3_], t_vec

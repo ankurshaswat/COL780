@@ -8,10 +8,8 @@ import cv2
 import numpy as np
 
 import obj_loader
-from utils_backup import (calculate_dist_corners,
-                          display_image_with_matched_keypoints, draw_rectangle,
-                          find_homographies, get_camera_params, get_matrix,
-                          load_ref_images, render)
+from utils import (calculate_dist_corners, get_camera_params,
+                   get_matrix, load_ref_images, render, get_homographies_contour)
 
 if __name__ == "__main__":
     OBJ_PATH = sys.argv[1]
@@ -29,31 +27,22 @@ if __name__ == "__main__":
             print("Unable to capture video")
             sys.exit()
 
-        MATCH_DATA = find_homographies(REF_DSC, FRAME)
+        MATCH_DATA, CORNER_DATA = get_homographies_contour(FRAME, REF_IMAGES)
 
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
 
-        if MATCH_DATA[0][0] is not None and MATCH_DATA[1][0] is not None:
+        if MATCH_DATA[0] is not None and MATCH_DATA[1] is not None:
 
-            HOMOGRAPHY1 = MATCH_DATA[0][0]
-            HOMOGRAPHY2 = MATCH_DATA[1][0]
-            MATCHES1 = MATCH_DATA[0][1]
-            MATCHES2 = MATCH_DATA[1][1]
-            KP1 = MATCH_DATA[0][3]
-            KP2 = MATCH_DATA[1][3]
+            HOMOGRAPHY1 = MATCH_DATA[0]
+            HOMOGRAPHY2 = MATCH_DATA[1]
 
-            FRAME, CORNER1 = draw_rectangle(HOMOGRAPHY1, REF_IMAGES[0], FRAME)
-            FRAME, CORNER2 = draw_rectangle(
-                HOMOGRAPHY2, REF_IMAGES[1], FRAME, 120)
+            CORNER1 = CORNER_DATA[0]
+            CORNER2 = CORNER_DATA[1]
 
-            PROJ_MAT1 = get_matrix(CAM_MAT, HOMOGRAPHY1)
+            PROJ_MAT1, R, T = get_matrix(CAM_MAT, HOMOGRAPHY1)
 
-            # DIST = calculate_dist_matches(KP1, MATCHES1, KP2, MATCHES2)
             DIST = calculate_dist_corners(CORNER1, CORNER2)
-
-            KP2 = [KP1[match.trainIdx] for match in MATCHES1]
-            FRAME = display_image_with_matched_keypoints(FRAME, KP2)
             DIST_X = DIST[0]
             DIST_Y = DIST[1]
 
@@ -70,7 +59,6 @@ if __name__ == "__main__":
             TRANS = np.array(
                 [[1, 0, REACHED_X], [0, 1, REACHED_Y], [0, 0, 1]])
             PROJ_MAT1 = np.dot(TRANS, PROJ_MAT1)
-
             FRAME = render(FRAME, OBJ, PROJ_MAT1, REF_IMAGES[0], False)
             cv2.imshow("frame", FRAME)
         else:
