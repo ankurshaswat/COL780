@@ -19,6 +19,8 @@ if __name__ == "__main__":
 
     flag_g = True
     flag_b = True
+    MATCH_DATA = [None, None]
+    CORNERS = [None, None]
     while True:
         RET, FRAME = VID_FEED.read()
         if not RET:
@@ -28,7 +30,7 @@ if __name__ == "__main__":
             SIZE = FRAME.shape
             GAME_STATE = init_game(SIZE)
 
-        MATCH_DATA, CORNERS = get_homographies_contour(FRAME, REF_IMAGES)
+        MATCH_DATA, CORNERS = get_homographies_contour(FRAME, REF_IMAGES, MATCH_DATA, CORNERS)
 
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
