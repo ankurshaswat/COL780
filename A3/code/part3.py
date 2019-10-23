@@ -23,6 +23,7 @@ if __name__ == "__main__":
     REF_IMAGES, REF_DSC = load_ref_images(1)
     CAM_PARAMS = get_camera_params()
     VID_FEED = cv2.VideoCapture(-1)
+    MATCH_DATA = [None, None]
 
     while True:
         RET, FRAME = VID_FEED.read()
@@ -34,7 +35,7 @@ if __name__ == "__main__":
             FRAME = draw_harris_kps(FRAME)
 
         # MATCH_DATA = find_homographies(REF_DSC, FRAME)
-        MATCH_DATA, _ = get_homographies_contour(FRAME, REF_IMAGES)
+        MATCH_DATA, _ = get_homographies_contour(FRAME, REF_IMAGES, MATCH_DATA, None)
 
         for ind, homography in enumerate(MATCH_DATA):
             # homography = match_tuple[0]
