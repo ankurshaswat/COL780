@@ -10,7 +10,7 @@ import torch.nn.functional as F
 import cv2
 
 from torch.optim import Adam
-from torch.utils.data import DataLoader,random_split
+from torch.utils.data import DataLoader, random_split
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
 from PIL import Image
@@ -22,18 +22,20 @@ import sys
 import cv2
 from utils import *
 from nnet import *
+from utils import TRANSFORM
 
 if __name__ == "__main__":
     VID_FEED = cv2.VideoCapture(-1)
     SIZE = None
-    model = Net()
+    model = Net(5)
     if torch.cuda.is_available():
         print('Found Cuda')
         model = model.cuda()
-    model.load("./model/test_model")
+
+    classes = model.load(sys.argv[1])
 
     i = 0
-    TEXT = "BACKGROUND"
+    TEXT = ""
     with torch.no_grad():
         while True:
             RET, FRAME = VID_FEED.read()
@@ -49,18 +51,16 @@ if __name__ == "__main__":
             FRAME = draw_game(FRAME, SIZE, TEXT)
             cv2.imshow("frame", FRAME)
             i += 1
-            if i%10 == 0:
-                # Get val class from nnet model
-                val = 0
-                if val == 0:
-                    TEXT = "NEXT"
-                elif val == 3:
-                    TEXT = "PREV"
-                elif val == 2:
-                    TEXT = "PAUSE"
-                else:
-                    TEXT = "BACKGROUND"
 
+            if i%4 == 0:
+                img = TRANSFORM(FRAME)
+                img = img[np.newaxis, :, :, :]
+                outputs = model(img)
+                _, predicted = torch.max(outputs, 1)
+                print(outputs, classes)
+                # Get val class from nnet model
+                TEXT = classes[predicted[0]]
                 i = 0
+
         VID_FEED.release()
         cv2.destroyAllWindows()
