@@ -12,12 +12,12 @@ class Net(nn.Module):
             nn.MaxPool2d(2,2))
 
         self.layer2 = nn.Sequential(
-            nn.Conv2d(2*num_channels,20,4),
+            nn.Conv2d(2*num_channels,16,4),
             nn.ReLU(),
             nn.MaxPool2d(2,2))
         
         self.fc1 = nn.Sequential(
-            nn.Linear(20*10*10,256),
+            nn.Linear(16*10*10,256),
             nn.ReLU()
         )
         
@@ -34,7 +34,7 @@ class Net(nn.Module):
     def forward(self, inp):
         out = self.layer1(inp)
         out = self.layer2(out)
-        out = out.view(-1, 2000)
+        out = out.view(-1, 1600)
         out = self.fc1(out)
         out = self.fc2(out)
         out = self.fc3(out)
