@@ -86,7 +86,7 @@ trainloader, valloader, testloader, classes = load_dataset_from_folder(
     batch_size=BATCH_SIZE)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=LR, momentum=MOMENTUM)
-optimizer = ReduceLROnPlateau(optimizer, 'min', patience=5, verbose=True)
+optimizer = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=5, verbose=True)
 
 # # get some random training images
 # dataiter = iter(trainloader)
