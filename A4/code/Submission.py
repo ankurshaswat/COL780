@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix
 
 EPOCHS = 100
-BATCH_SIZE = 16
+BATCH_SIZE = 1024
 LR = 0.01
 MOMENTUM = 0.9
 plot = False
@@ -30,7 +30,7 @@ plot = False
 # In[3]:
 
 
-def load_dataset_from_folder(all_data_path='./../images/', validation_split_size=0.1, batch_size=16, num_workers=1, shuffle=True):
+def load_dataset_from_folder(all_data_path='./../images/', validation_split_size=0.1, batch_size=16, num_workers=6, shuffle=True):
     all_data = ImageFolder(
         root=all_data_path,
         transform=TRANSFORM
@@ -106,7 +106,7 @@ imshow(torchvision.utils.make_grid(images[:,4:5,:,:]))
 print(' '.join('%5s' % classes[labels[j]] for j in range(4)))
 
 with open ('log_val', 'w') as fv:
-    with open('labels', 'w') as lab:
+    with open('log_lab', 'w') as lab:
         with open('log_train', 'w') as f:
             for epoch in range(EPOCHS):
                 running_loss = 0.0
@@ -158,7 +158,7 @@ with open ('log_val', 'w') as fv:
                             label = labels_cp[i]
                             class_correct[label] += c[i].item()
                             class_total[label] += 1
-                        fv.write(str(loss)+"\n")
+                        fv.write(str(loss.item())+"\n")
                     lab.write(str(len(class_correct)/len(class_total))+"\n")
                     print("Validation: F1: ", f1_score(y_true, y_pred, average='weighted'))
                     if plot:
