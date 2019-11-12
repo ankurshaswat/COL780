@@ -21,7 +21,7 @@ import time
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix
 
-EPOCHS = 100
+EPOCHS = 1000000
 BATCH_SIZE = 1024
 LR = 0.01
 MOMENTUM = 0.9
@@ -30,7 +30,7 @@ plot = False
 # In[3]:
 
 
-def load_dataset_from_folder(all_data_path='./../images/', validation_split_size=0.1, batch_size=16, num_workers=6, shuffle=True):
+def load_dataset_from_folder(all_data_path='./../data/Simple/', validation_split_size=0.1, batch_size=16, num_workers=6, shuffle=True):
     all_data = ImageFolder(
         root=all_data_path,
         transform=TRANSFORM
@@ -132,7 +132,7 @@ with open ('log_val', 'w') as fv:
                         f.write(str(running_loss/10)+"\n")
                         running_loss = 0.0
 
-                name = net.save(classes)
+                name = net.save(classes, epoch)
                 print('Model saved as {}'.format(name))
                 y_true = []
                 y_pred = []

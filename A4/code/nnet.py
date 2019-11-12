@@ -41,13 +41,13 @@ class Net(nn.Module):
         out = self.fc3(out)
         return out
 
-    def save(self, classes, folder_path="../models/"):
+    def save(self, classes, epc, folder_path="../models/"):
         timestamp = time.time()
         dict_save = {
             'params': self.state_dict(),
             'classes': classes
         }
-        name = folder_path + str(timestamp)+'.model'
+        name = folder_path + str(timestamp)+'_' +str(epc)+'.model'
         torch.save(dict_save, name)
         return name
 
