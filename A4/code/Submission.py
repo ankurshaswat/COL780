@@ -69,8 +69,12 @@ def load_dataset_from_folder(all_data_path='./../data/Simple/', validation_split
 
 # In[4]:
 
-
 net = Net(NUM_CHANNELS)
+try:
+    net  = net.load("../models/1573584871.3391135_12.model")
+except Exception as e:
+    print("NNET NOT FOUND: ", str(e))
+    pass
 
 CUDA = False
 if torch.cuda.is_available():
@@ -86,28 +90,28 @@ criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=LR, momentum=MOMENTUM)
 
 
-# get some random training images
-dataiter = iter(trainloader)
-images, labels = dataiter.next()
+# # get some random training images
+# dataiter = iter(trainloader)
+# images, labels = dataiter.next()
 
-# show images
-imshow(torchvision.utils.make_grid(images[:,:3,:,:]))
-# print labels
-print(' '.join('%5s' % classes[labels[j]] for j in range(4)))
+# # show images
+# imshow(torchvision.utils.make_grid(images[:,:3,:,:]))
+# # print labels
+# print(' '.join('%5s' % classes[labels[j]] for j in range(4)))
 
-# show images
-imshow(torchvision.utils.make_grid(images[:,3:4,:,:]))
-# print labels
-print(' '.join('%5s' % classes[labels[j]] for j in range(4)))
+# # show images
+# imshow(torchvision.utils.make_grid(images[:,3:4,:,:]))
+# # print labels
+# print(' '.join('%5s' % classes[labels[j]] for j in range(4)))
 
-# show images
-imshow(torchvision.utils.make_grid(images[:,4:5,:,:]))
-# print labels
-print(' '.join('%5s' % classes[labels[j]] for j in range(4)))
+# # show images
+# imshow(torchvision.utils.make_grid(images[:,4:5,:,:]))
+# # print labels
+# print(' '.join('%5s' % classes[labels[j]] for j in range(4)))
 
-with open ('log_val', 'w') as fv:
-    with open('log_lab', 'w') as lab:
-        with open('log_train', 'w') as f:
+with open ('log_val', 'a') as fv:
+    with open('log_lab', 'a') as lab:
+        with open('log_train', 'a') as f:
             for epoch in range(EPOCHS):
                 running_loss = 0.0
                 num_batches = 0
