@@ -52,6 +52,8 @@ class Net(nn.Module):
         return name
 
     def load(self, path):
-        dict_load = torch.load(path)
+        use_cuda = torch.cuda.is_available()
+        device = torch.device("cuda" if use_cuda else "cpu")
+        dict_load = torch.load(path, map_location=torch.device(device))
         self.load_state_dict(dict_load['params'])
         return dict_load['classes']

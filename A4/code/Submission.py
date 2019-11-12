@@ -21,14 +21,12 @@ import time
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix
 
-EPOCHS = 1000000
+EPOCHS = 100
 BATCH_SIZE = 1024
-LR = 0.01
+LR = 0.1
 MOMENTUM = 0.9
 plot = False
-
-# In[3]:
-
+TRAIN = True
 
 def load_dataset_from_folder(all_data_path='./../data/Simple/', validation_split_size=0.1, batch_size=16, num_workers=6, shuffle=True):
     all_data = ImageFolder(
@@ -88,7 +86,7 @@ trainloader, valloader, testloader, classes = load_dataset_from_folder(
     batch_size=BATCH_SIZE)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=LR, momentum=MOMENTUM)
-
+optimizer = ReduceLROnPlateau(optimizer, 'min', patience=5, verbose=True)
 
 # # get some random training images
 # dataiter = iter(trainloader)
@@ -113,62 +111,59 @@ with open ('log_val', 'a') as fv:
     with open('log_lab', 'a') as lab:
         with open('log_train', 'a') as f:
             for epoch in range(EPOCHS):
-                running_loss = 0.0
-                num_batches = 0
-                for i, data in enumerate(trainloader):
-                    inputs, labels = data
-                    if CUDA:
-                        inputs = inputs.cuda()
-                        labels = labels.cuda()
-                    
-                    outputs = net(inputs)
-                    loss = criterion(outputs, labels)
-
-                    optimizer.zero_grad()
-                    loss.backward()
-                    optimizer.step()
-
-                    running_loss += loss.item()
-                    num_batches += 1
-                    if i % 1 == 0:
-                        print('[%d, %5d] loss: %.3f' %
-                              (epoch + 1, i + 1, running_loss / 10))
-                        f.write(str(running_loss/10)+"\n")
-                        running_loss = 0.0
-
-                name = net.save(classes, epoch)
-                print('Model saved as {}'.format(name))
-                y_true = []
-                y_pred = []
-                class_correct = list(0. for i in range(4))
-                class_total = list(0. for i in range(4))
-
-                with torch.no_grad():
-                    for data in testloader:
-                        images, labels = data
-                        labels_cp = labels.clone()
+                if TRAIN:
+                    running_loss = 0.0
+                    num_batches = 0
+                    for i, data in enumerate(trainloader):
+                        inputs, labels = data
                         if CUDA:
-                            images = images.cuda()
+                            inputs = inputs.cuda()
                             labels = labels.cuda()
-                        outputs = net(images)
+                        
+                        outputs = net(inputs)
                         loss = criterion(outputs, labels)
-                        _, predicted = torch.max(outputs, 1)
-                        predicted = predicted.cpu()
-                        for i in range(len(predicted)):
-                            y_pred.append(predicted[i])
-                            y_true.append(labels_cp[i])
-                        c = (predicted == labels_cp).squeeze()
-                        for i in range(min(BATCH_SIZE, len(labels_cp))):
-                            label = labels_cp[i]
-                            class_correct[label] += c[i].item()
-                            class_total[label] += 1
-                        fv.write(str(loss.item())+"\n")
-                    lab.write(str(len(class_correct)/len(class_total))+"\n")
-                    print("Validation: F1: ", f1_score(y_true, y_pred, average='weighted'))
-                    if plot:
-                        plot_confusion_matrix(y_true, y_pred, classes=class_names,title='Confusion matrix, without normalization')
-                        plt.show()
 
+                        optimizer.zero_grad()
+                        loss.backward()
+                        optimizer.step()
+
+                        running_loss += loss.item()
+                        num_batches += 1
+                        if i % 1 == 0:
+                            print('[%d, %5d] loss: %.3f' %
+                                  (epoch + 1, i + 1, running_loss / 10))
+                            f.write(str(running_loss/10)+"\n")
+                            running_loss = 0.0
+
+                    name = net.save(classes, epoch)
+                    print('Model saved as {}'.format(name))
+                    y_true = []
+                    y_pred = []
+                    class_correct = list(0. for i in range(4))
+                    class_total = list(0. for i in range(4))
+
+                    with torch.no_grad():
+                        for data in valloader:
+                            images, labels = data
+                            labels_cp = labels.clone()
+                            if CUDA:
+                                images = images.cuda()
+                                labels = labels.cuda()
+                            outputs = net(images)
+                            loss = criterion(outputs, labels)
+                            _, predicted = torch.max(outputs, 1)
+                            predicted = predicted.cpu()
+                            for i in range(len(predicted)):
+                                y_pred.append(predicted[i])
+                                y_true.append(labels_cp[i])
+                            c = (predicted == labels_cp).squeeze()
+                            for i in range(min(BATCH_SIZE, len(labels_cp))):
+                                label = labels_cp[i]
+                                class_correct[label] += c[i].item()
+                                class_total[label] += 1
+                            fv.write(str(loss.item())+"\n")
+                        lab.write(str(len(class_correct)/len(class_total))+"\n")
+                        print("Validation: F1: ", f1_score(y_true, y_pred, average='weighted'))
                 y_true = []
                 y_pred = []
                 class_correct = list(0. for i in range(4))
@@ -193,3 +188,6 @@ with open ('log_val', 'a') as fv:
                             class_correct[label] += c[i].item()
                             class_total[label] += 1
                 print("Test F1: ", f1_score(y_true, y_pred, average='weighted'))
+                if plot:
+                    plot_confusion_matrix(y_true, y_pred, classes=class_names,title='Confusion matrix, without normalization')
+                    plt.show()
