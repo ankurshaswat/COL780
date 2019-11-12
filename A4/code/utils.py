@@ -61,6 +61,7 @@ def add_channels(img):
 #     print(img_combined.shape)
 
     resized_img = cv2.resize(img_combined, (50, 50))
+    # resized_img = cv2.resize(openCVim, (50, 50))
 #     print(openCVim.shape,img_gray.shape,thresh_holded_img.shape)
 #     img_combined = np.concatenate((openCVim,img_gray), axis=2)
 #     PILim = Image.fromarray(img_combined)

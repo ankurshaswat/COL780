@@ -17,21 +17,21 @@ from PIL import Image
 from sklearn.metrics import f1_score
 from utils import TRANSFORM, NUM_CHANNELS, imshow
 import torchvision
-
+import time
 
 # In[2]:
 
 
 EPOCHS = 100
-BATCH_SIZE = 64
-LR = 0.005
+BATCH_SIZE = 2048
+LR = 0.001
 MOMENTUM = 0.9
 
 
 # In[3]:
 
 
-def load_dataset_from_folder(all_data_path='../data/Generic', validation_split_size=0.1, batch_size=16, num_workers=2, shuffle=True):
+def load_dataset_from_folder(all_data_path='../../../scratch/Generic', validation_split_size=0.1, batch_size=16, num_workers=1, shuffle=True):
     all_data = ImageFolder(
         root=all_data_path,
         transform=TRANSFORM
@@ -65,6 +65,15 @@ def load_dataset_from_folder(all_data_path='../data/Generic', validation_split_s
 
 
 net = Net(NUM_CHANNELS)
+
+CUDA = False
+if torch.cuda.is_available():
+    CUDA = True
+    print('Cuda found')
+    device = torch.cuda.current_device()
+    print(device)
+    net = net.cuda()
+
 trainloader, testloader, classes = load_dataset_from_folder(
     batch_size=BATCH_SIZE)
 # net.save(classes)
@@ -105,6 +114,10 @@ for epoch in range(EPOCHS):
     for i, data in enumerate(trainloader):
         inputs, labels = data
 
+        if CUDA:
+            inputs = inputs.cuda()
+            labels = labels.cuda()
+        
         outputs = net(inputs)
         loss = criterion(outputs, labels)
 
@@ -114,12 +127,12 @@ for epoch in range(EPOCHS):
 
         running_loss += loss.item()
         num_batches += 1
-        # if i % 10 == 9:
-        #     print('[%d, %5d] loss: %.3f' %
-        #           (epoch + 1, i + 1, running_loss / 10))
-        #     running_loss = 0.0
+        if i % 1 == 0:
+            print('[%d, %5d] loss: %.3f' %
+                  (epoch + 1, i + 1, running_loss / 10))
+            running_loss = 0.0
 
-    print('[%d] loss: %.3f' % (epoch+1, running_loss/num_batches))
+    # print('[%d] loss: %.3f' % (epoch+1, running_loss/num_batches))
 
     name = net.save(classes)
     print('Model saved as {}'.format(name))
@@ -132,9 +145,13 @@ for epoch in range(EPOCHS):
     with torch.no_grad():
         for data in testloader:
             images, labels = data
+            if CUDA:
+                images = images.cuda()
+                # labels = labels.cuda()
             outputs = net(images)
     #         print(images.shape)
             _, predicted = torch.max(outputs, 1)
+            predicted = predicted.cpu()
             for i in range(len(predicted)):
                 y_pred.append(predicted[i])
                 y_true.append(labels[i])
