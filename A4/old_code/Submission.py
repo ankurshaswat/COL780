@@ -20,6 +20,12 @@ import torchvision
 import time
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix
+import random
+
+np.random.seed(0)
+torch.manual_seed(0)
+random.seed(0) 
+
 
 EPOCHS = 100
 BATCH_SIZE = 1024
@@ -28,7 +34,7 @@ MOMENTUM = 0.9
 plot = False
 TRAIN = True
 
-def load_dataset_from_folder(all_data_path='./../images/', validation_split_size=0.1, batch_size=16, num_workers=6, shuffle=True):
+def load_dataset_from_folder(all_data_path='../data/Generic/', validation_split_size=0.1, batch_size=16, num_workers=6, shuffle=True):
     all_data = ImageFolder(
         root=all_data_path,
         transform=TRANSFORM
