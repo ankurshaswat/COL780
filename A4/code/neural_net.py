@@ -17,6 +17,15 @@ from models import Net
 from utils import NUM_CHANNELS, TRANSFORM
 
 
+def init_weights(m):
+    """
+    Init Weights using xavier uniform
+    """
+    if isinstance(m,nn.Linear):
+        torch.nn.init.xavier_uniform_(m.weight)
+        m.bias.data.fill_(0.01)
+
+
 class NNet():
     """
     Wrapper to manage neural net.
@@ -25,12 +34,19 @@ class NNet():
     def __init__(self, args):
         self.args = args
         self.num_channels = NUM_CHANNELS
-        self.net = Net(self.num_channels)
+        self.net = Net(self.num_channels, args)
         if self.args.cuda:
             self.net = self.net.cuda()
         self.load_dataset_from_folder()
         self.writer = SummaryWriter()
         self.unique_tok = str(time.time())
+        self.init_weights()
+
+    def init_weights(self):
+        """
+        Initialize by Xavier weights
+        """
+        self.net.apply(init_weights)
 
     def load_dataset_from_folder(self):
         """
@@ -100,8 +116,13 @@ class NNet():
             running_loss_t = 0.0
             num_batches = 0
 
+            print('Epoch: {} , LR: {}'.format(epoch+1, scheduler.get_lr()))
+
             for data in tqdm(self.train_loader):
                 inputs, labels = data
+
+                if len(inputs) < 2:
+                    continue
 
                 if self.args.cuda:
                     inputs = inputs.cuda()
@@ -125,10 +146,8 @@ class NNet():
             self.writer.add_scalar(
                 'Loss/train', running_loss_t/num_batches, epoch+1)
 
-            self.net.eval()
             loss_v = self.get_validation_loss(criterion)
-            loss_v = 0
-            self.net.train()
+
             self.writer.add_scalar('Loss/val', loss_v, epoch+1)
 
             print("Epoch {} Time {:.2f}s Training-Loss {:.3f} Validation-Loss {:.3f}".format(
@@ -140,6 +159,8 @@ class NNet():
         """
         running_loss = 0.0
         num_batches = 0
+
+        self.net.eval()
 
         with torch.no_grad():
             for data in tqdm(self.val_loader):
@@ -153,6 +174,8 @@ class NNet():
                 loss = criterion(outputs, labels)
                 running_loss += loss.item()
                 num_batches += 1
+
+        self.net.train()
 
         return running_loss/num_batches
 

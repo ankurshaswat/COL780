@@ -33,7 +33,9 @@ def parse_args():
                         action='store', type=float, default=0.1)
     parser.add_argument('--batch_size', action='store', type=int, default=1024)
     parser.add_argument('--num_workers', action='store', type=int, default=8)
-
+   
+    parser.add_argument('-dropout', action='store',
+                        dest='dropout', type=float, default=0.2)
     parser.add_argument('--epoch', action='store', type=int, default=20)
     parser.add_argument('--lr', action='store', type=float, default=0.01)
     parser.add_argument('--momentum', action='store', type=float, default=0.9)

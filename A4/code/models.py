@@ -14,6 +14,7 @@ class Net(nn.Module):
 
         self.layer1 = nn.Sequential(
             nn.Conv2d(num_channels, 2*num_channels, 5),
+            nn.BatchNorm2d(2*num_channels),
             nn.ReLU(),
             nn.MaxPool2d(2, 2))
 
