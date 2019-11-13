@@ -41,6 +41,10 @@ def parse_args():
     parser.add_argument('--momentum', action='store', type=float, default=0.9)
     parser.add_argument('--l2_regularization',
                         action='store', type=float, default=1e-5)
+    parser.add_argument('--scheduler_step_size', action='store', type=int, default=3)
+    parser.add_argument('--scheduler_gamma', action='store', type=float, default=0.5)
+    
+    parser.add_argument('--seed', action='store', type=int, default=1)
 
     args = parser.parse_args()
 

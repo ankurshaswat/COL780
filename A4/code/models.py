@@ -37,6 +37,7 @@ class Net(nn.Module):
         self.fc3 = nn.Sequential(
             nn.Linear(128, 4),
             nn.ReLU(),
+            nn.Softmax(dim=1)
         )
 
     def forward(self, inp):

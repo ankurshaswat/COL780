@@ -14,14 +14,15 @@ from torchvision.datasets import ImageFolder
 from tqdm import tqdm
 
 from models import Net
-from utils import NUM_CHANNELS, TRANSFORM
+from utils import NUM_CHANNELS, TRANSFORM,imshow
+import torchvision
 
 
 def init_weights(m):
     """
     Init Weights using xavier uniform
     """
-    if isinstance(m,nn.Linear):
+    if isinstance(m, nn.Linear):
         torch.nn.init.xavier_uniform_(m.weight)
         m.bias.data.fill_(0.01)
 
@@ -105,8 +106,8 @@ class NNet():
                                   momentum=self.args.momentum, weight_decay=self.args.l2_regularization)
         criterion = nn.CrossEntropyLoss()
 
-        scheduler = optim.lr_scheduler.StepLR(
-            optimizer, step_size=7, gamma=0.1)
+        # scheduler = optim.lr_scheduler.StepLR(
+        #     optimizer, step_size=self.args.scheduler_step_size, gamma=self.args.scheduler_gamma)
 
         self.net.train()
 
@@ -116,10 +117,12 @@ class NNet():
             running_loss_t = 0.0
             num_batches = 0
 
-            print('Epoch: {} , LR: {}'.format(epoch+1, scheduler.get_lr()))
+            # print('Epoch: {} , LR: {}'.format(epoch+1, scheduler.get_lr()))
 
             for data in tqdm(self.train_loader):
                 inputs, labels = data
+                
+                # imshow(torchvision.utils.make_grid(inputs[:,:3,:,:]))
 
                 if len(inputs) < 2:
                     continue
@@ -129,18 +132,25 @@ class NNet():
                     labels = labels.cuda()
 
                 outputs = self.net(inputs)
+                print(outputs,labels)
                 loss = criterion(outputs, labels)
 
                 optimizer.zero_grad()
                 loss.backward()
+                print(loss.item())
                 optimizer.step()
 
                 running_loss_t += loss.item()
                 num_batches += 1
 
+                # if num_batches % 10 == 9:
+                #     print("Epoch {}.{} Training-Loss {:.3f}".format(
+                #         epoch+1, num_batches, running_loss_t/10))
+                #     # num_batches = 0
+                #     running_loss_t = 0
             end_time = time.time()
 
-            scheduler.step()
+            # scheduler.step()
 
             self.save(epoch+1)
             self.writer.add_scalar(

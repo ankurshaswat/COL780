@@ -10,12 +10,15 @@ import torch
 from neural_net import NNet
 from utils import parse_args
 
-np.random.seed(0)
-torch.manual_seed(0)
-random.seed(0)
-
 if __name__ == "__main__":
     ARGS = parse_args()
+
+    SEED = ARGS.seed
+
+    np.random.seed(SEED)
+    torch.manual_seed(SEED)
+    random.seed(SEED)
+
 
     NET = NNet(ARGS)
 
