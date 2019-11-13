@@ -122,7 +122,9 @@ class NNet():
             self.save(epoch+1)
             self.writer.add_scalar('Loss/train', running_loss_t/num_batches, epoch+1)
 
+            self.net.eval()
             loss_v = self.get_validation_loss(criterion)
+            self.net.train()
 
             self.writer.add_scalar('Loss/val', loss_v, epoch+1)
 
@@ -136,7 +138,6 @@ class NNet():
         running_loss = 0.0
         num_batches = 0
 
-        self.net.eval()
 
         with torch.no_grad():
             for data in tqdm(self.val_loader):
