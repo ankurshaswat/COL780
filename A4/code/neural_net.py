@@ -91,12 +91,12 @@ class NNet():
 
         self.net.train()
 
-        num_batches = 0
 
         for epoch in range(self.args.epoch):
             start_time = time.time()
 
             running_loss_t = 0.0
+            num_batches = 0
 
             for data in tqdm(self.train_loader):
                 inputs, labels = data
@@ -120,12 +120,12 @@ class NNet():
             scheduler.step()
 
             self.save(epoch+1)
+            self.writer.add_scalar('Loss/train', running_loss_t/num_batches, epoch+1)
 
             loss_v = self.get_validation_loss(criterion)
 
-            self.writer.add_scalar('Loss/train', running_loss_t/num_batches, epoch+1)
             self.writer.add_scalar('Loss/val', loss_v, epoch+1)
-            
+
             print("Epoch {} Time {:.2f}s Training-Loss {:.3f} Validation-Loss {:.3f}".format(
                 epoch+1, end_time-start_time, running_loss_t/num_batches, loss_v))
 

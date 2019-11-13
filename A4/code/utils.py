@@ -21,20 +21,24 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description='Get all arguments for training.')
 
-    parser.add_argument('-diable_cuda', action='store_false',dest='cuda', default=True)
+    parser.add_argument('-disable_cuda', action='store_false',
+                        dest='cuda', default=True)
     parser.add_argument('--shuffle', action='store_false', default=True)
 
     parser.add_argument('--all_data_path', action='store',
                         default='../data/Generic')
+    parser.add_argument('--load_model_path', action='store',
+                        default='')
     parser.add_argument('--validation_split_size',
                         action='store', type=float, default=0.1)
     parser.add_argument('--batch_size', action='store', type=int, default=1024)
     parser.add_argument('--num_workers', action='store', type=int, default=8)
 
-    parser.add_argument('--epoch', action='store', type=int, default=2)
+    parser.add_argument('--epoch', action='store', type=int, default=20)
     parser.add_argument('--lr', action='store', type=float, default=0.1)
     parser.add_argument('--momentum', action='store', type=float, default=0.9)
-    parser.add_argument('--l2_regularization', action='store', type=float, default=1e-5)
+    parser.add_argument('--l2_regularization',
+                        action='store', type=float, default=1e-5)
 
     args = parser.parse_args()
 

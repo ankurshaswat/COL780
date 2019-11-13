@@ -19,4 +19,7 @@ if __name__ == "__main__":
 
     NET = NNet(ARGS)
 
+    if ARGS.load_model_path != '':
+        NET.load(ARGS.load_model_path)
+
     NET.train()
