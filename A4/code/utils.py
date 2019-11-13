@@ -37,7 +37,7 @@ def parse_args():
     parser.add_argument('-dropout', action='store',
                         dest='dropout', type=float, default=0.2)
     parser.add_argument('--epoch', action='store', type=int, default=20)
-    parser.add_argument('--lr', action='store', type=float, default=0.01)
+    parser.add_argument('--lr', action='store', type=float, default=0.0001)
     parser.add_argument('--momentum', action='store', type=float, default=0.9)
     parser.add_argument('--l2_regularization',
                         action='store', type=float, default=1e-5)
