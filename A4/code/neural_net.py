@@ -7,6 +7,7 @@ import time
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from sklearn.metrics import f1_score
 from torch.utils.data import DataLoader, random_split
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.datasets import ImageFolder
@@ -25,6 +26,8 @@ class NNet():
         self.args = args
         self.num_channels = NUM_CHANNELS
         self.net = Net(self.num_channels)
+        if self.args.cuda:
+            self.net = self.net.cuda()
         self.load_dataset_from_folder()
         self.writer = SummaryWriter()
         self.unique_tok = str(time.time())
@@ -76,7 +79,7 @@ class NNet():
 
         self.train_loader = training_data_loader
         self.val_loader = validation_dataset_loader
-        return training_data_loader, validation_dataset_loader, test_dataset_loader, classes
+        self.test_loader = test_dataset_loader
 
     def train(self):
         """
@@ -90,7 +93,6 @@ class NNet():
             optimizer, step_size=7, gamma=0.1)
 
         self.net.train()
-
 
         for epoch in range(self.args.epoch):
             start_time = time.time()
@@ -120,12 +122,13 @@ class NNet():
             scheduler.step()
 
             self.save(epoch+1)
-            self.writer.add_scalar('Loss/train', running_loss_t/num_batches, epoch+1)
+            self.writer.add_scalar(
+                'Loss/train', running_loss_t/num_batches, epoch+1)
 
             self.net.eval()
             loss_v = self.get_validation_loss(criterion)
+            loss_v = 0
             self.net.train()
-
             self.writer.add_scalar('Loss/val', loss_v, epoch+1)
 
             print("Epoch {} Time {:.2f}s Training-Loss {:.3f} Validation-Loss {:.3f}".format(
@@ -137,7 +140,6 @@ class NNet():
         """
         running_loss = 0.0
         num_batches = 0
-
 
         with torch.no_grad():
             for data in tqdm(self.val_loader):
@@ -154,16 +156,46 @@ class NNet():
 
         return running_loss/num_batches
 
+    def get_test_accuracy(self):
+        """
+        Check overall accuracy of model
+        """
+        y_true = []
+        y_pred = []
+        class_correct = list(0. for i in range(4))
+        class_total = list(0. for i in range(4))
+
+        with torch.no_grad():
+            for data in tqdm(self.test_loader):
+                images, labels = data
+                labels_cp = labels.clone()
+                if self.args.cuda:
+                    images = images.cuda()
+                    labels = labels.cuda()
+                outputs = self.net(images)
+                _, predicted = torch.max(outputs, 1)
+                predicted = predicted.cpu()
+                for i, pred in enumerate(predicted):
+                    y_pred.append(pred)
+                    y_true.append(labels_cp[i])
+                c = (predicted == labels_cp).squeeze()
+
+                for i in range(min(self.args.batch_size, len(labels_cp))):
+                    label = labels_cp[i]
+                    class_correct[label] += c[i].item()
+                    class_total[label] += 1
+
+        print("Test F1: ", f1_score(y_true, y_pred, average='weighted'))
+
     def save(self, epochs, folder_path="../models/"):
         """
         Save Model
         """
-        timestamp = time.time()
         dict_save = {
             'params': self.net.state_dict(),
             'classes': self.classes
         }
-        name = folder_path + str(timestamp) + '_' + str(epochs)+'.model'
+        name = folder_path + self.unique_tok + '_' + str(epochs)+'.model'
         torch.save(dict_save, name)
         print('Model saved at {}'.format(name))
         return name

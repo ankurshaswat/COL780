@@ -35,7 +35,7 @@ def parse_args():
     parser.add_argument('--num_workers', action='store', type=int, default=8)
 
     parser.add_argument('--epoch', action='store', type=int, default=20)
-    parser.add_argument('--lr', action='store', type=float, default=0.1)
+    parser.add_argument('--lr', action='store', type=float, default=0.01)
     parser.add_argument('--momentum', action='store', type=float, default=0.9)
     parser.add_argument('--l2_regularization',
                         action='store', type=float, default=1e-5)
