@@ -108,9 +108,15 @@ class NNet():
         """
         Train Neural Net
         """
-        # optimizer = optim.RMSprop(self.net.parameters(), lr=self.args.lr,momentum=self.args.momentum, weight_decay=self.args.l2_regularization)
-        # optimizer = optim.SGD(self.net.parameters(),lr=self.args.lr, momentum=self.args.momentum)
-        optimizer = optim.Adam(self.net.parameters(), lr=self.args.lr)
+
+        if self.args.optim == 'RMSprop':
+            optimizer = optim.RMSprop(self.net.parameters(
+            ), lr=self.args.lr, momentum=self.args.momentum, weight_decay=self.args.l2_regularization)
+        elif self.args.optim == 'SGD':
+            optimizer = optim.SGD(self.net.parameters(),
+                                  lr=self.args.lr, momentum=self.args.momentum)
+        elif self.args.optim == 'Adam':
+            optimizer = optim.Adam(self.net.parameters(), lr=self.args.lr)
 
         criterion = nn.CrossEntropyLoss()
 
@@ -280,6 +286,7 @@ class NNet():
         self.net.eval()
         with torch.no_grad():
             vals = self.net(inp)
+            print(vals)
             _, predicted = torch.max(vals, 1)
             predicted = predicted.cpu()
             result_class = self.classes[predicted]

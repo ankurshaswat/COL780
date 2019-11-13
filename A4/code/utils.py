@@ -48,6 +48,7 @@ def parse_args():
 
     parser.add_argument('--seed', action='store', type=int, default=1)
     parser.add_argument('--netType', action='store', type=int, default=1)
+    parser.add_argument('--optim', action='store', default='Adam')
 
     args = parser.parse_args()
 
