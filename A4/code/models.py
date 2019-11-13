@@ -9,7 +9,7 @@ class Net(nn.Module):
     Neural net model
     """
 
-    def __init__(self, num_channels):
+    def __init__(self, num_channels, args):
         super(Net, self).__init__()
 
         self.layer1 = nn.Sequential(
@@ -19,6 +19,7 @@ class Net(nn.Module):
 
         self.layer2 = nn.Sequential(
             nn.Conv2d(2*num_channels, 16, 4),
+            nn.Dropout2d(args.dropout),
             nn.ReLU(),
             nn.MaxPool2d(2, 2))
 
