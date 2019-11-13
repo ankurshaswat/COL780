@@ -13,8 +13,8 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision.datasets import ImageFolder
 from tqdm import tqdm
 
-from models import Net
-from utils import NUM_CHANNELS, TRANSFORM,imshow
+from models import Net, Net2
+from utils import NUM_CHANNELS, TRANSFORM, imshow
 import torchvision
 
 
@@ -35,9 +35,15 @@ class NNet():
     def __init__(self, args):
         self.args = args
         self.num_channels = NUM_CHANNELS
-        self.net = Net(self.num_channels, args)
-        if self.args.cuda:
+
+        if args.netType == 1:
+            self.net = Net(self.num_channels, args)
+        elif args.netType == 2:
+            self.net = Net2(self.num_channels, args)
+
+        if args.cuda:
             self.net = self.net.cuda()
+
         self.load_dataset_from_folder()
         self.writer = SummaryWriter()
         self.unique_tok = str(time.time())
@@ -102,8 +108,10 @@ class NNet():
         """
         Train Neural Net
         """
-        optimizer = optim.RMSprop(self.net.parameters(), lr=self.args.lr,
-                                  momentum=self.args.momentum, weight_decay=self.args.l2_regularization)
+        # optimizer = optim.RMSprop(self.net.parameters(), lr=self.args.lr,momentum=self.args.momentum, weight_decay=self.args.l2_regularization)
+        # optimizer = optim.SGD(self.net.parameters(),lr=self.args.lr, momentum=self.args.momentum)
+        optimizer = optim.Adam(self.net.parameters(), lr=self.args.lr)
+
         criterion = nn.CrossEntropyLoss()
 
         # scheduler = optim.lr_scheduler.StepLR(
@@ -117,11 +125,14 @@ class NNet():
             running_loss_t = 0.0
             num_batches = 0
 
+            y_true = []
+            y_pred = []
             # print('Epoch: {} , LR: {}'.format(epoch+1, scheduler.get_lr()))
 
             for data in tqdm(self.train_loader):
                 inputs, labels = data
-                
+                labels_cp = labels.clone()
+
                 # imshow(torchvision.utils.make_grid(inputs[:,:3,:,:]))
 
                 if len(inputs) < 2:
@@ -132,36 +143,41 @@ class NNet():
                     labels = labels.cuda()
 
                 outputs = self.net(inputs)
-                print(outputs,labels)
+
                 loss = criterion(outputs, labels)
+
+                _, predicted = torch.max(outputs, 1)
+                predicted = predicted.cpu()
+                for i, pred in enumerate(predicted):
+                    y_pred.append(pred)
+                    y_true.append(labels_cp[i])
 
                 optimizer.zero_grad()
                 loss.backward()
-                print(loss.item())
                 optimizer.step()
 
                 running_loss_t += loss.item()
                 num_batches += 1
 
-                # if num_batches % 10 == 9:
-                #     print("Epoch {}.{} Training-Loss {:.3f}".format(
-                #         epoch+1, num_batches, running_loss_t/10))
-                #     # num_batches = 0
-                #     running_loss_t = 0
             end_time = time.time()
+
+            train_f1 = f1_score(y_true, y_pred, average='weighted')
 
             # scheduler.step()
 
             self.save(epoch+1)
             self.writer.add_scalar(
                 'Loss/train', running_loss_t/num_batches, epoch+1)
+            self.writer.add_scalar(
+                'F1/train', train_f1, epoch+1)
 
-            loss_v = self.get_validation_loss(criterion)
+            loss_v, val_f1 = self.get_validation_loss(criterion)
 
             self.writer.add_scalar('Loss/val', loss_v, epoch+1)
+            self.writer.add_scalar('F1/val', val_f1, epoch+1)
 
-            print("Epoch {} Time {:.2f}s Training-Loss {:.3f} Validation-Loss {:.3f}".format(
-                epoch+1, end_time-start_time, running_loss_t/num_batches, loss_v))
+            print("Epoch {} Time {:.2f}s Train-Loss {:.3f} Val-Loss {:.3f} Train-F1 {:.3f} Val-F1 {:.3f}".format(
+                epoch+1, end_time-start_time, running_loss_t/num_batches, loss_v, train_f1, val_f1))
 
     def get_validation_loss(self, criterion):
         """
@@ -171,23 +187,34 @@ class NNet():
         num_batches = 0
 
         self.net.eval()
+        y_true = []
+        y_pred = []
 
         with torch.no_grad():
             for data in tqdm(self.val_loader):
                 images, labels = data
+                labels_cp = labels.clone()
 
                 if self.args.cuda:
                     images = images.cuda()
                     labels = labels.cuda()
 
                 outputs = self.net(images)
+
+                _, predicted = torch.max(outputs, 1)
+                predicted = predicted.cpu()
+                for i, pred in enumerate(predicted):
+                    y_pred.append(pred)
+                    y_true.append(labels_cp[i])
+
                 loss = criterion(outputs, labels)
                 running_loss += loss.item()
                 num_batches += 1
 
         self.net.train()
+        val_f1 = f1_score(y_true, y_pred, average='weighted')
 
-        return running_loss/num_batches
+        return running_loss/num_batches, val_f1
 
     def get_test_accuracy(self):
         """

@@ -33,18 +33,21 @@ def parse_args():
                         action='store', type=float, default=0.1)
     parser.add_argument('--batch_size', action='store', type=int, default=1024)
     parser.add_argument('--num_workers', action='store', type=int, default=8)
-   
+
     parser.add_argument('-dropout', action='store',
                         dest='dropout', type=float, default=0.2)
     parser.add_argument('--epoch', action='store', type=int, default=20)
-    parser.add_argument('--lr', action='store', type=float, default=0.0001)
+    parser.add_argument('--lr', action='store', type=float, default=0.001)
     parser.add_argument('--momentum', action='store', type=float, default=0.9)
     parser.add_argument('--l2_regularization',
                         action='store', type=float, default=1e-5)
-    parser.add_argument('--scheduler_step_size', action='store', type=int, default=3)
-    parser.add_argument('--scheduler_gamma', action='store', type=float, default=0.5)
-    
+    parser.add_argument('--scheduler_step_size',
+                        action='store', type=int, default=3)
+    parser.add_argument('--scheduler_gamma', action='store',
+                        type=float, default=0.5)
+
     parser.add_argument('--seed', action='store', type=int, default=1)
+    parser.add_argument('--netType', action='store', type=int, default=1)
 
     args = parser.parse_args()
 
