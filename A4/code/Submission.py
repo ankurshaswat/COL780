@@ -28,7 +28,7 @@ MOMENTUM = 0.9
 plot = False
 TRAIN = True
 
-def load_dataset_from_folder(all_data_path='./../data/Simple/', validation_split_size=0.1, batch_size=16, num_workers=6, shuffle=True):
+def load_dataset_from_folder(all_data_path='./../images/', validation_split_size=0.1, batch_size=16, num_workers=6, shuffle=True):
     all_data = ImageFolder(
         root=all_data_path,
         transform=TRANSFORM
@@ -85,32 +85,35 @@ if torch.cuda.is_available():
 trainloader, valloader, testloader, classes = load_dataset_from_folder(
     batch_size=BATCH_SIZE)
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(net.parameters(), lr=LR, momentum=MOMENTUM)
 # scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=5, verbose=True)
+optimizer = optim.Adam(net.parameters(), lr=LR)
 
-# # get some random training images
-# dataiter = iter(trainloader)
-# images, labels = dataiter.next()
+# get some random training images
+dataiter = iter(trainloader)
+images, labels = dataiter.next()
 
-# # show images
-# imshow(torchvision.utils.make_grid(images[:,:3,:,:]))
-# # print labels
-# print(' '.join('%5s' % classes[labels[j]] for j in range(4)))
+# show images
+imshow(torchvision.utils.make_grid(images[:,:3,:,:]))
+# print labels
+print(' '.join('%5s' % classes[labels[j]] for j in range(4)))
 
-# # show images
-# imshow(torchvision.utils.make_grid(images[:,3:4,:,:]))
-# # print labels
-# print(' '.join('%5s' % classes[labels[j]] for j in range(4)))
+# show images
+imshow(torchvision.utils.make_grid(images[:,3:4,:,:]))
+# print labels
+print(' '.join('%5s' % classes[labels[j]] for j in range(4)))
 
-# # show images
-# imshow(torchvision.utils.make_grid(images[:,4:5,:,:]))
-# # print labels
-# print(' '.join('%5s' % classes[labels[j]] for j in range(4)))
+# show images
+imshow(torchvision.utils.make_grid(images[:,4:5,:,:]))
+# print labels
+print(' '.join('%5s' % classes[labels[j]] for j in range(4)))
 
 with open ('log_val', 'a') as fv:
     with open('log_lab', 'a') as lab:
         with open('log_train', 'a') as f:
             for epoch in range(EPOCHS):
+                # if epoch%12 == 0:
+                #     LR  = LR/10
+
                 if TRAIN:
                     running_loss = 0.0
                     num_batches = 0

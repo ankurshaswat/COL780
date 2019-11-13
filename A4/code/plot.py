@@ -11,6 +11,9 @@ for line in open(sys.argv[1], 'r').readlines():
 		y.append(float(l[0]))
 	i += 1
 
+plt.title('Validation Loss vs No. of Epochs')
+plt.xlabel('Epochs')
+plt.ylabel('Validation Loss')
 plt.plot(x, y)
 plt.show()
 
